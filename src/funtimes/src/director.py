@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-# license removed for brevity
-
-'''blind movement- prompt user for translation input to move robot without reference to global pose'''
 
 import rospy # import rospy, the package that lets us use ros in python. 
-from std_msgs.msg import String # A simple message type, String that just wraps the primitive type string (an array of characters)
+from std_msgs.msg import String, Bool # A simple message type, String that just wraps the primitive type string (an array of characters)
 from geometry_msgs.msg import Twist
 import numpy as np
+from turtlesim.msg import Pose
 
 def main():
-    velocity_publisher = rospy.Publisher('/turtle1/cmd_vel', Twist, queue_size=10) #
-    rospy.init_node('turtle_mover', anonymous=True) 
+    goal_publisher = rospy.Publisher('goal_pose', Pose, queue_size=10)
+    rospy.init_node('director', anonymous=True) 
     rate = rospy.Rate(10) # 10 hz
+
+    ready_subscriber = rospy.Subscriber("ready", Bool, callback)
     
     while not rospy.is_shutdown(): # While there's a roscore
         
+        #check to see if the robot is ready for a new command (i.e. has reached the last goal)
+
         # Create the vel message
         vel_msg = Twist()
-        # speed = float(input("enter speed:"))
-        # distance = float(input("enter distance:"))
-        speed = 5*np.random.rand()
-        distance = 5*np.random.rand()
-
+        speed = float(input("enter speed:"))
+        distance = float(input("enter distance:"))
+    
         vel_msg.linear.y = 0.0
         vel_msg.linear.z = 0.0
         vel_msg.angular.x = 0.0
@@ -51,6 +51,12 @@ def main():
         
         # sleep so we don't publish way too many messages per second. This also gives us a chance to process incoming messages (but this node has no incoming messages)
         rate.sleep()
+
+
+def callback(data):
+    #need to use callback function to act on subscriber input
+    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
+
 
 if __name__ == '__main__': # this runs when the file is run
     try: # the try catch block allows this code to easily be interrupted without hanging

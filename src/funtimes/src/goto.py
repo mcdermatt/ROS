@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+
+''' moves turtle to desired position '''
+
+#TODO: add param for marker on/off
+
+import rospy # import rospy, the package that lets us use ros in python. 
+from std_msgs.msg import String, Bool # A simple message type, String that just wraps the primitive type string (an array of characters)
+from geometry_msgs.msg import Twist
+import numpy as np
+from turtlesim.msg import Pose
+
+class TurtleBot:
+
+    def __init__(self):
+        # Creates a node with name 'goto' and make sure it is a
+        # unique node (using anonymous=True).
+        rospy.init_node('goto', anonymous=True)
+
+        # Publisher which will publish to the topic '/turtle1/cmd_vel'.
+        self.velocity_publisher = rospy.Publisher('/turtle1/cmd_vel',
+                                                  Twist, queue_size=10)
+
+        # A subscriber to the topic '/turtle1/pose'. self.update_pose is called
+        # when a message of type Pose is received.
+        self.pose_subscriber = rospy.Subscriber('/turtle1/pose',
+                                                Pose, self.update_pose)
+
+        #subscriber for goal pose
+        self.goal_subscriber = rospy.Subscriber('goal_pose', Pose, self.move2goal)
+
+        #Publisher will announce when robot is at goal, indicating ready for next instruction
+        self.ready_publisher = rospy.Publisher('ready', Bool, queue_size = 1)
+        self.is_ready = False #init robot as not being at goal pos
+
+        self.pose = Pose()
+        self.rate = rospy.Rate(10)
+
+    def update_pose(self, data):
+        """Callback function which is called when a new message of type Pose is
+        received by the subscriber."""
+        self.pose = data
+        self.pose.x = round(self.pose.x, 4)
+        self.pose.y = round(self.pose.y, 4)
+
+    def euclidean_distance(self, goal_pose):
+        """Euclidean distance between current pose and the goal."""
+        return np.sqrt((goal_pose.x - self.pose.x)**2 +
+                    (goal_pose.y - self.pose.y)**2)
+
+    def linear_vel(self, goal_pose, constant=1.5):
+        """See video: https://www.youtube.com/watch?v=Qh15Nol5htM."""
+        return constant * self.euclidean_distance(goal_pose)
+
+    def steering_angle(self, goal_pose):
+        """See video: https://www.youtube.com/watch?v=Qh15Nol5htM."""
+        return np.arctan2(goal_pose.y - self.pose.y, goal_pose.x - self.pose.x)
+
+    def angular_vel(self, goal_pose, constant=6):
+        """See video: https://www.youtube.com/watch?v=Qh15Nol5htM."""
+        return constant * (self.steering_angle(goal_pose) - self.pose.theta)
+
+    def move2goal(self):
+        """Moves the turtle to the goal."""
+        goal_pose = Pose()
+
+        # Get the input from the user.
+        # goal_pose.x = float(input("Set your x goal: "))
+        # goal_pose.y = float(input("Set your y goal: "))
+        # Please, insert a number slightly greater than 0 (e.g. 0.01).
+        # distance_tolerance = float(input("Set your tolerance: "))
+
+        goal_pose.x = 10 #temp
+        goal_pose.y = 2
+        distance_tolerance = 0.1
+
+        vel_msg = Twist()
+
+        while self.euclidean_distance(goal_pose) >= distance_tolerance:
+
+            # Porportional controller.
+            # https://en.wikipedia.org/wiki/Proportional_control
+
+            # Linear velocity in the x-axis.
+            vel_msg.linear.x = self.linear_vel(goal_pose)
+            vel_msg.linear.y = 0
+            vel_msg.linear.z = 0
+
+            # Angular velocity in the z-axis.
+            vel_msg.angular.x = 0
+            vel_msg.angular.y = 0
+            vel_msg.angular.z = self.angular_vel(goal_pose)
+
+            # Publishing our vel_msg
+            self.velocity_publisher.publish(vel_msg)
+
+        	#re-publish that we are not ready??
+            self.is_ready = False
+            self.ready_publisher.publish(self.is_ready)
+
+            # Publish at the desired rate.
+            self.rate.sleep()
+
+        #re-publish that we are not ready
+        self.is_ready = True
+        self.ready_publisher.publish(self.is_ready)
+
+        # Stopping our robot after the movement is over.
+        vel_msg.linear.x = 0
+        vel_msg.angular.z = 0
+        self.velocity_publisher.publish(vel_msg)
+
+        # If we press control + C, the node will stop.
+        rospy.spin()
+
+if __name__ == '__main__':
+    try:
+        x = TurtleBot()
+        x.move2goal()
+    except rospy.ROSInterruptException:
+        pass

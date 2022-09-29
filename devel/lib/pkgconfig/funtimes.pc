@@ -1,0 +1,8 @@
+prefix=/home/derm/ROS/devel
+
+Name: funtimes
+Description: Description of funtimes
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

@@ -1,15 +1,20 @@
+# source /home/ubuntu/anaconda3/etc/profile.d/conda.sh #go back to conda
+#go back to conda
+source anaconda3/etc/profile.d/conda.sh 
+#fix broken NVIDIA Driver?
+https://www.murhabazi.com/install-nvidia-driver
+#-------------------------------------------------
+
 # Make sure ROS is sourced. This is the system-level ros you installed
 source /opt/ros/noetic/setup.bash
 
-# source /home/ubuntu/anaconda3/etc/profile.d/conda.sh #go back to conda
-source anaconda3/etc/profile.d/conda.sh #go back to conda
-
 # Set up catkin workspace
 cd # go to your home directory
-mkdir -p catkin_ws/src # make a directory for your catkin workspace
-cd ~/catkin_ws # go to your catkin workspace
+mkdir -p ROS/src # make a directory for your catkin workspace (naming it ROS)
+cd ~/ROS # go to your catkin workspace
 catkin_make # initialize your catkin workspace. This sets up the directory structure so you can build your own packages.
-source ~/catkin_ws/devel/setup.bash # source your workspace, adding this workspace to the system ROS packages. (Note: If you put this line in your .bashrc you don't need to source it every time you open a new terminal)
+# source your workspace, adding this workspace to the system ROS packages. (Note: If you put this line in your .bashrc you don't need to source it every time you open a new terminal)
+source ~/ROS/devel/setup.bash 
 
 # Now set up our own package for the listener/publisher example
 cd ~/catkin_ws/src # go to the source directory
@@ -35,3 +40,6 @@ rosrun funtimes talker.py
 
 # check if the funtimes started, if you're not having funtimes, you might not have followed the instructions (joke). 
 
+
+#tutorial on setting up LIDAR scanner in Gazebo
+https://kiranpalla.com/blog/ros-using-gazebo-laser-scan-plug-in/

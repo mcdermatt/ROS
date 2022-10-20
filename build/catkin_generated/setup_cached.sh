@@ -7,8 +7,5 @@
 # new environment variables
 
 # modified environment variables
-export CMAKE_PREFIX_PATH="/home/derm/ROS/devel:$CMAKE_PREFIX_PATH"
-export LD_LIBRARY_PATH="/home/derm/ROS/devel/lib:$LD_LIBRARY_PATH"
 export PWD='/home/derm/ROS/build'
-export ROSLISP_PACKAGE_DIRECTORIES='/home/derm/ROS/devel/share/common-lisp'
-export ROS_PACKAGE_PATH="/home/derm/ROS/src:$ROS_PACKAGE_PATH"
+export PYTHONPATH="/home/derm/ROS/devel/lib/python3/dist-packages:$PYTHONPATH"

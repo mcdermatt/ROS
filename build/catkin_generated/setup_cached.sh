@@ -8,4 +8,3 @@
 
 # modified environment variables
 export PWD='/home/derm/ROS/build'
-export PYTHONPATH="/home/derm/ROS/devel/lib/python3/dist-packages:$PYTHONPATH"

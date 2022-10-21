@@ -1,12 +1,12 @@
 (cl:in-package ICET-msg)
 (cl:export '(TIMESTAMP-VAL
           TIMESTAMP
-          ERRORS-VAL
-          ERRORS
-          CH1-VAL
-          CH1
-          CH2-VAL
-          CH2
+          RESTART-VAL
+          RESTART
+          FRAME-VAL
+          FRAME
           STATUS-VAL
           STATUS
+          TRUE_TRANSFORM-VAL
+          TRUE_TRANSFORM
 ))

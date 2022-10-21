@@ -1,5 +1,5 @@
 time timestamp
-bool errors
-float32 ch1
-float32 ch2
+bool restart
+int32 frame
 string status
+float32[] true_transform

@@ -8,7 +8,7 @@
 
 #include <string>
 #include <vector>
-#include <memory>
+#include <map>
 
 #include <ros/types.h>
 #include <ros/serialization.h>
@@ -25,17 +25,17 @@ struct Num_
 
   Num_()
     : timestamp()
-    , errors(false)
-    , ch1(0.0)
-    , ch2(0.0)
-    , status()  {
+    , restart(false)
+    , frame(0)
+    , status()
+    , true_transform()  {
     }
   Num_(const ContainerAllocator& _alloc)
     : timestamp()
-    , errors(false)
-    , ch1(0.0)
-    , ch2(0.0)
-    , status(_alloc)  {
+    , restart(false)
+    , frame(0)
+    , status(_alloc)
+    , true_transform(_alloc)  {
   (void)_alloc;
     }
 
@@ -44,17 +44,17 @@ struct Num_
    typedef ros::Time _timestamp_type;
   _timestamp_type timestamp;
 
-   typedef uint8_t _errors_type;
-  _errors_type errors;
+   typedef uint8_t _restart_type;
+  _restart_type restart;
 
-   typedef float _ch1_type;
-  _ch1_type ch1;
+   typedef int32_t _frame_type;
+  _frame_type frame;
 
-   typedef float _ch2_type;
-  _ch2_type ch2;
-
-   typedef std::basic_string<char, std::char_traits<char>, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<char>> _status_type;
+   typedef std::basic_string<char, std::char_traits<char>, typename ContainerAllocator::template rebind<char>::other >  _status_type;
   _status_type status;
+
+   typedef std::vector<float, typename ContainerAllocator::template rebind<float>::other >  _true_transform_type;
+  _true_transform_type true_transform;
 
 
 
@@ -86,10 +86,10 @@ template<typename ContainerAllocator1, typename ContainerAllocator2>
 bool operator==(const ::ICET::Num_<ContainerAllocator1> & lhs, const ::ICET::Num_<ContainerAllocator2> & rhs)
 {
   return lhs.timestamp == rhs.timestamp &&
-    lhs.errors == rhs.errors &&
-    lhs.ch1 == rhs.ch1 &&
-    lhs.ch2 == rhs.ch2 &&
-    lhs.status == rhs.status;
+    lhs.restart == rhs.restart &&
+    lhs.frame == rhs.frame &&
+    lhs.status == rhs.status &&
+    lhs.true_transform == rhs.true_transform;
 }
 
 template<typename ContainerAllocator1, typename ContainerAllocator2>
@@ -146,12 +146,12 @@ struct MD5Sum< ::ICET::Num_<ContainerAllocator> >
 {
   static const char* value()
   {
-    return "5c756fa6b1c2901279edb34f2bd952f7";
+    return "93042447ed01f85739c5e6e8683f8ec7";
   }
 
   static const char* value(const ::ICET::Num_<ContainerAllocator>&) { return value(); }
-  static const uint64_t static_value1 = 0x5c756fa6b1c29012ULL;
-  static const uint64_t static_value2 = 0x79edb34f2bd952f7ULL;
+  static const uint64_t static_value1 = 0x93042447ed01f857ULL;
+  static const uint64_t static_value2 = 0x39c5e6e8683f8ec7ULL;
 };
 
 template<class ContainerAllocator>
@@ -171,10 +171,10 @@ struct Definition< ::ICET::Num_<ContainerAllocator> >
   static const char* value()
   {
     return "time timestamp\n"
-"bool errors\n"
-"float32 ch1\n"
-"float32 ch2\n"
+"bool restart\n"
+"int32 frame\n"
 "string status\n"
+"float32[] true_transform\n"
 ;
   }
 
@@ -194,10 +194,10 @@ namespace serialization
     template<typename Stream, typename T> inline static void allInOne(Stream& stream, T m)
     {
       stream.next(m.timestamp);
-      stream.next(m.errors);
-      stream.next(m.ch1);
-      stream.next(m.ch2);
+      stream.next(m.restart);
+      stream.next(m.frame);
       stream.next(m.status);
+      stream.next(m.true_transform);
     }
 
     ROS_DECLARE_ALLINONE_SERIALIZER
@@ -218,14 +218,18 @@ struct Printer< ::ICET::Num_<ContainerAllocator> >
   {
     s << indent << "timestamp: ";
     Printer<ros::Time>::stream(s, indent + "  ", v.timestamp);
-    s << indent << "errors: ";
-    Printer<uint8_t>::stream(s, indent + "  ", v.errors);
-    s << indent << "ch1: ";
-    Printer<float>::stream(s, indent + "  ", v.ch1);
-    s << indent << "ch2: ";
-    Printer<float>::stream(s, indent + "  ", v.ch2);
+    s << indent << "restart: ";
+    Printer<uint8_t>::stream(s, indent + "  ", v.restart);
+    s << indent << "frame: ";
+    Printer<int32_t>::stream(s, indent + "  ", v.frame);
     s << indent << "status: ";
-    Printer<std::basic_string<char, std::char_traits<char>, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<char>>>::stream(s, indent + "  ", v.status);
+    Printer<std::basic_string<char, std::char_traits<char>, typename ContainerAllocator::template rebind<char>::other > >::stream(s, indent + "  ", v.status);
+    s << indent << "true_transform[]" << std::endl;
+    for (size_t i = 0; i < v.true_transform.size(); ++i)
+    {
+      s << indent << "  true_transform[" << i << "]: ";
+      Printer<float>::stream(s, indent + "  ", v.true_transform[i]);
+    }
   }
 };
 

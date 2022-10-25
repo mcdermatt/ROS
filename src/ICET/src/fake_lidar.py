@@ -5,22 +5,21 @@ import numpy as np
 from rospy.numpy_msg import numpy_msg
 from rospy_tutorials.msg import Floats
 
-#test
 import std_msgs.msg as std_msgs
 import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
-# import pcl
-# import sensor_msgs.point_cloud2 as pc2
-# import sensor_msgs#.msg as sensor_msgs
 
 """script to publish custom LIDAR point cloud messages"""
 
+#TODO: 
+#       make publishing a service 
+#       -> wait until listener is done registering previous cloud to send next
 
 def point_cloud(points, parent_frame):
     """ Creates a point cloud message.
     Args:
-        points: Nx7 array of xyz positions (m) and rgba colors (0..1)
+        points: Nx3 array of xyz positions (m) and rgba colors (0..1)
         parent_frame: frame in which the point cloud is defined
     Returns:
         sensor_msgs/PointCloud2 message

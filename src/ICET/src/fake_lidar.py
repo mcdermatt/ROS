@@ -10,6 +10,8 @@ import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
 
+import trimesh #when using KITTI_CARLA dataset
+
 """script to publish custom LIDAR point cloud messages"""
 
 #TODO: 
@@ -51,7 +53,7 @@ def point_cloud(points, parent_frame):
 def main():
 
     # publish numpy array 
-    pcNpyPub = rospy.Publisher('numpy_cloud', numpy_msg(Floats), queue_size = 1)
+    # pcNpyPub = rospy.Publisher('numpy_cloud', numpy_msg(Floats), queue_size = 1)
 
     # traditional pointcloud2 msg
     pcPub = rospy.Publisher('point_cloud', PointCloud2, queue_size = 1)
@@ -65,23 +67,27 @@ def main():
     while not rospy.is_shutdown(): # While there's a roscore
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # use simulated point clouds I generated for a previous publication 
-        # https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
-        
-        #use ROS timestamp as seed for scan idx
-        idx = int(r*rospy.get_time()%40) + 1
-        fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
-        pcNpy = np.loadtxt(fn)
+        ## use simulated point clouds I generated for a previous publication 
+        ## https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
+        # idx = int(r*rospy.get_time()%40) + 1 #use ROS timestamp as seed for scan idx
+        # fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
+        # pcNpy = np.loadtxt(fn)
+
+        #use KITTI_CARLA synthetic LIDAR data
+        idx = int(r*rospy.get_time()%1000) + 1 #use ROS timestamp as seed for scan idx
+        fn = '/home/derm/KITTICARLA/dataset/Town02/generated/frames/frame_%04d.ply' %(idx)
+        dat1 = trimesh.load(fn)
+        pcNpy = dat1.vertices
 
         #publish point cloud as numpy_msg (rospy)
-        pcNpyPub.publish(pcNpy)
+        # pcNpyPub.publish(pcNpy)
 
-        #publish again as true point cloud message (so I can view with rviz)
+        #publish point cloud as point_cloud2 message (better?)
         pcPub.publish(point_cloud(pcNpy, 'map'))
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-        #using custom <Num> message type~~~~~~~~~~~~~~~~~~~
+        # publish custom <Num> message type~~~~~~~~~~~~~~~~~
         msg = Num()
         msg.frame = idx
         if idx == 1:

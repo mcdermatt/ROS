@@ -35,8 +35,9 @@ class MapMaker():
 
     def point_cloud(self, points, parent_frame):
         """ Creates a point cloud message.
+        https://gist.github.com/pgorczak/5c717baa44479fa064eb8d33ea4587e0
         Args:
-            points: Nx3 array of xyz positions (m) and rgba colors (0..1)
+            points: Nx7 array of xyz positions (m) and rgba colors (0..1)
             parent_frame: frame in which the point cloud is defined
         Returns:
             sensor_msgs/PointCloud2 message
@@ -80,16 +81,21 @@ class MapMaker():
         print("trans:", trans)
         self.global_pose = self.global_pose + trans
 
-        #remove ground plane and downsample if needed(??)
-        # self.newscan_xyz = self.newscan_xyz[self.newscan_xyz[:,2] > -1.65]
+        # self.newscan_xyz = self.newscan_xyz[self.newscan_xyz[:,2] > -1.65] #remove ground plane
+        self.newscan_xyz = self.newscan_xyz[np.random.choice(len(self.newscan_xyz), size = 10000)]  #downsample
 
         #add two clouds together to update Map
         self.map_xyz = np.append(self.map_xyz, self.newscan_xyz + self.global_pose, axis = 0)
-        print(self.map_xyz)
-
+        # print(self.map_xyz)
 
         #publish updated map
+        #white PC
         self.mapPub.publish(self.point_cloud(self.map_xyz, 'map'))
+        #color by z height
+        # colors = np.zeros([np.shape(self.map_xyz)[0], 4])
+        # colors[:,3] = self.map_xyz[:,2]
+        # xyz_with_color = np.append(self.map_xyz, colors, axis = 1)
+        # self.mapPub.publish(self.point_cloud(xyz_with_color, 'map')) 
 
     def get_info(self, data):
         """ Gets Lidar info from custom Num msg """
@@ -110,7 +116,7 @@ class MapMaker():
         self.newscan_xyz = np.array(xyz)
         # print("newscan_xyz", np.shape(self.newscan_xyz))
 
-        rospy.loginfo("Got scan!")
+        # rospy.loginfo("Got scan!")
         # print(self.newscan_xyz[:10])
 
         self.update_map()

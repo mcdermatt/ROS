@@ -61,25 +61,27 @@ def main():
     # publish custom message with additional LIDAR info
     etcPub = rospy.Publisher('lidar_info', Num, queue_size=10) #This publisher can hold 10 msgs that haven't been sent yet.  
     rospy.init_node('LidarScanner', anonymous=True)
-    r = 1
+    r = 2
     rate = rospy.Rate(r) # hz
     
     while not rospy.is_shutdown(): # While there's a roscore
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # use simulated point clouds I generated for a previous publication 
-        # https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
-        idx = int(r*rospy.get_time()%40) + 1 #use ROS timestamp as seed for scan idx
+        # # use simulated point clouds I generated for a previous publication 
+        # # https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
+        # idx = int(r*rospy.get_time()%40) + 1 #use ROS timestamp as seed for scan idx
         # print(idx)
-        fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
-        pcNpy = np.loadtxt(fn)
+        # fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
+        # pcNpy = np.loadtxt(fn)
+        # # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
+
+        #use KITTI_CARLA synthetic LIDAR data
+        idx = int(r*rospy.get_time()%400) + 2300 #use ROS timestamp as seed for scan idx
+        fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx)
+        dat1 = trimesh.load(fn)
+        pcNpy = dat1.vertices
         # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
 
-        # #use KITTI_CARLA synthetic LIDAR data
-        # idx = int(r*rospy.get_time()%1000) + 1 #use ROS timestamp as seed for scan idx
-        # fn = '/home/derm/KITTICARLA/dataset/Town02/generated/frames/frame_%04d.ply' %(idx)
-        # dat1 = trimesh.load(fn)
-        # pcNpy = dat1.vertices
 
         #publish point cloud as numpy_msg (rospy)
         # pcNpyPub.publish(pcNpy)

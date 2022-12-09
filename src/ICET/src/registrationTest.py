@@ -64,13 +64,6 @@ velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflecta
 c2 = velo2[:,:3]
 # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-# c1 = c1[c1[:,2] > -2.] #ignore reflections
-# c2 = c2[c2[:,2] > -2.] #ignore reflections
-
-c1 = c1[c1[:,1] < -0] #temp
-c2 = c2[c2[:,1] < -0] #temp
-c1 = c1[c1[:,0] < 10.5] #temp
-c2 = c2[c2[:,0] < 10.5] #temp
 
 #load previously processed cloud 1
 # c1 = np.loadtxt("cloud1_good.txt")
@@ -335,7 +328,7 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 x0 = tf.constant([0., 0., 0., 0., 0., 0.])
 
 it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, 
-	draw = False, group = 2, RM = False, DNN_filter = False, x0 = x0)
+	draw = True, group = 2, RM = True, DNN_filter = False, x0 = x0)
 
 
 # #test using naive spherical cuboid-shaped voxles

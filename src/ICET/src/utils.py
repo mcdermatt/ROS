@@ -8,7 +8,7 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     """NEW VERSION using TF operations"""
     before = time.time()
 
-    max_buffer = 0.2
+    max_buffer = 0.5 #0.2
 
     #fix dimensions
     if len(tf.shape(rads)) < 2:
@@ -115,7 +115,7 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     bounds = tf.concat((inner[:,None], outer[:,None]), axis = 1)
     bounds = tf.cast(good_clusters[:,None], tf.float32) * bounds #suppress cells with no good clusters
 
-    print("\n getting bounds took", time.time() - before,"seconds")
+    # print("\n getting bounds took", time.time() - before,"seconds")
 
     return bounds
 

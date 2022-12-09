@@ -3,28 +3,33 @@ import rospy
 from std_msgs.msg import String
 import numpy as np
 from ICET.msg import Num #using custom message type
-
+from rospy_tutorials.msg import Floats
 import std_msgs.msg as std_msgs
 import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
 from laser_geometry import LaserProjection
 
+from utils import R_tf
+
 class MapMaker():
-    """mapmaker node subscribes to /point_cloud topic and attemts to 
-        register multiple point clouds to single map"""
+    """mapmaker node uses transformations output by <scanmatcher> to combine multiple point clouds
+        into single HD map """
     
-    def __init__(self, scan_topic="point_cloud"):
+    def __init__(self, scan_topic="static_point_cloud"):
         # self.scan_sub = rospy.Subscriber(scan_topic, LaserScan, self.on_scan)
         self.laser_projector = LaserProjection()
 
         rospy.init_node('mapmaker', anonymous=True)
 
-        self.scan_sub = rospy.Subscriber(scan_topic, PointCloud2, self.on_scan) #pc2 tutorial
-
+        #TODO: make this subscribe to point clouds published by scan_matcher???
+        self.scan_sub = rospy.Subscriber(scan_topic, PointCloud2, self.on_scan)
         self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
+        self.mapPub = rospy.Publisher('hd_map', PointCloud2, queue_size = 10)
+        self.downsample_size = 30_000 #10000 #size of each sub-cloud
 
-        self.mapPub = rospy.Publisher('map', PointCloud2, queue_size = 10)
+        #subscribe to local transformation estimates output by ScanMatcher
+        self.Tsub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
 
         self.map_xyz = np.array([[0., 0., 0.]])
         #TODO: make this 6DOF
@@ -75,27 +80,30 @@ class MapMaker():
             self.map_xyz = np.array([[0., 0., 0.]])
             self.global_pose = np.array([0., 0. ,0.])
 
-        #get transformation to align new cloud with existing map
-        # (temp -- just going to use the transform provided in custom <Num> msg)
-        trans = self.scan_data.true_transform[:3]
-        print("trans:", trans)
-        self.global_pose = self.global_pose + trans
-
         # self.newscan_xyz = self.newscan_xyz[self.newscan_xyz[:,2] > -1.65] #remove ground plane
-        self.newscan_xyz = self.newscan_xyz[np.random.choice(len(self.newscan_xyz), size = 10000)]  #downsample
+        self.newscan_xyz = self.newscan_xyz[np.random.choice(len(self.newscan_xyz), size = self.downsample_size)]  #downsample
+
+        #get transformation to align new cloud with existing map
+        # for debug: cheat with access to ground truth transform 
+        # trans = self.scan_data.true_transform[:3]
+
+        # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
+        trans = self.local_estimate[:3]
+        print("trans:", trans)
+        rot = R_tf(-np.array(self.local_estimate[3:6])).numpy()
+        print("rot", rot)
+
+        print("\n", np.shape(self.map_xyz))
 
         #add two clouds together to update Map
-        self.map_xyz = np.append(self.map_xyz, self.newscan_xyz + self.global_pose, axis = 0)
-        # print(self.map_xyz)
+        transformed_old_map = self.map_xyz.dot(rot) - trans
+        self.map_xyz = np.append(transformed_old_map, self.newscan_xyz, axis = 0)
+        # #old --------------
+        # self.global_pose = self.global_pose + trans
+        # self.map_xyz = np.append(self.map_xyz, self.newscan_xyz + self.global_pose, axis = 0)
+        # #------------------
 
-        #publish updated map
-        #white PC
-        self.mapPub.publish(self.point_cloud(self.map_xyz, 'map'))
-        #color by z height
-        # colors = np.zeros([np.shape(self.map_xyz)[0], 4])
-        # colors[:,3] = self.map_xyz[:,2]
-        # xyz_with_color = np.append(self.map_xyz, colors, axis = 1)
-        # self.mapPub.publish(self.point_cloud(xyz_with_color, 'map')) 
+        self.mapPub.publish(self.point_cloud(self.map_xyz, 'map')) #publish updated map
 
     def get_info(self, data):
         """ Gets Lidar info from custom Num msg """
@@ -103,6 +111,12 @@ class MapMaker():
         # rospy.loginfo("got data!")
         self.scan_data = data
         print("frame idx:", data.frame)
+
+    def on_transform(self, local_estimate):
+        """called when ScanMatcher node publishes local transformation estimate"""
+
+        self.local_estimate = local_estimate.data
+        print("self.local_estimate", self.local_estimate)
 
     def on_scan(self, scan):
         # https://answers.ros.org/question/202787/using-pointcloud2-data-getting-xy-points-in-python/

@@ -57,13 +57,13 @@ def main():
     # pcNpyPub = rospy.Publisher('numpy_cloud', numpy_msg(Floats), queue_size = 1)
 
     # traditional pointcloud2 msg
-    pcPub = rospy.Publisher('point_cloud', PointCloud2, queue_size = 10)
+    pcPub = rospy.Publisher('raw_point_cloud', PointCloud2, queue_size = 10)
 
     # publish custom message with additional LIDAR info
     etcPub = rospy.Publisher('lidar_info', Num, queue_size=10) #This publisher can hold 10 msgs that haven't been sent yet.  
-    rospy.init_node('LidarScanner', anonymous=True)
-    r = 10 #real time (too fast to work at full resolution)
-    # r = 5 #slower real time (some sensors run at 5Hz)
+    rospy.init_node('LidarScanner', anonymous=False)
+    # r = 10 #real time (too fast to work at full resolution)
+    r = 5 #slower real time (some sensors run at 5Hz)
     # r = 1
     rate = rospy.Rate(r) # hz
     
@@ -88,6 +88,9 @@ def main():
         #use Ouster sample dataset (from high fidelity 128-channel sensor!)
         idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx
         fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
+        # idx = int(r*rospy.get_time()%140) + 1 #only play every 5th frame
+        # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(5*idx)
+
         print("Publishing", fn1)
         df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
         pcNpy = df1.values[:,8:11]*0.001 #1st sensor return

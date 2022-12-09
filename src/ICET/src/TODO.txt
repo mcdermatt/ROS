@@ -1,10 +1,46 @@
 #TODO---
 
-improve runtime performance of ICET
+~~~~~~~~~~~~~~~~~~~P1~~~~~~~~~~~~~~~~~~~~~~~~~
+-<ScanMatcher>
+  publish message with each sequntial transformation
+    store message history with #frame ID + transformation since last frame
 
-import ICET_spherical class
+  figure out how to deal with inconsistant registration rate
+    associte frame ID's with each transformations?
 
-make node for sequential frame registrations
-  store message history with #frame ID + transformation since last frame
+-<MapMaker>
+  -subscribe to transformation messages from GraphSlammer??
 
-figure out how to deal with inconsistant registration speed
+  -subscribe to downsampled point clouds from ICET containing non-moving points
+
+  -save HD Map to disk
+
+  -make option to remove moving objects
+    -default off --> still get points from scan matcher either way
+        if RM off, ICET outputs cloud2 in place of cloud2static 
+
+  -figure out passthrough message- MapMaker should always be getting point clouds to plot from ScanMatcher
+    -I THINK this could allow running mutliple scanmatcher nodes in parallel???
+
+    -look into passthrough nodes
+
+
+-<GraphSlammer>
+  - constantly take in local transformation estimates between sets of point clouds
+
+  - allow multiple instances of /scanmatcher to be run in parallel
+
+  - keep track of list of each local transformation and their associated (predicted) error covarainces 
+
+  - batch optimize each transformation
+
+  - output estimated pose (rotation and translation) for all available timesteps
+      - zero out estimates if no possible registration at that time
+
+-Launch File
+  -tbh it's pretty annoying to have to open a half dozen terminals to manually run the SLAM process 
+
+~~~~~~~~~~~~~~~~~~~ICEBOX~~~~~~~~~~~~~~~~~~~~~
+-improve runtime performance of ICET
+
+-experiment with multiple ScanMatcher nodes running in parallel?

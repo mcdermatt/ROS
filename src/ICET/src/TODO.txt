@@ -1,0 +1,10 @@
+#TODO---
+
+improve runtime performance of ICET
+
+import ICET_spherical class
+
+make node for sequential frame registrations
+  store message history with #frame ID + transformation since last frame
+
+figure out how to deal with inconsistant registration speed

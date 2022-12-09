@@ -4,6 +4,7 @@ from ICET.msg import Num #using custom message type
 import numpy as np
 from rospy.numpy_msg import numpy_msg
 from rospy_tutorials.msg import Floats
+import pandas as pd
 
 import std_msgs.msg as std_msgs
 import sensor_msgs
@@ -61,7 +62,9 @@ def main():
     # publish custom message with additional LIDAR info
     etcPub = rospy.Publisher('lidar_info', Num, queue_size=10) #This publisher can hold 10 msgs that haven't been sent yet.  
     rospy.init_node('LidarScanner', anonymous=True)
-    r = 2
+    r = 10 #real time (too fast to work at full resolution)
+    # r = 5 #slower real time (some sensors run at 5Hz)
+    # r = 1
     rate = rospy.Rate(r) # hz
     
     while not rospy.is_shutdown(): # While there's a roscore
@@ -75,13 +78,20 @@ def main():
         # pcNpy = np.loadtxt(fn)
         # # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
 
-        #use KITTI_CARLA synthetic LIDAR data
-        idx = int(r*rospy.get_time()%400) + 2300 #use ROS timestamp as seed for scan idx
-        fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx)
-        dat1 = trimesh.load(fn)
-        pcNpy = dat1.vertices
-        # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
+        # #use KITTI_CARLA synthetic LIDAR data
+        # idx = int(r*rospy.get_time()%400) + 2300 #use ROS timestamp as seed for scan idx
+        # fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx)
+        # dat1 = trimesh.load(fn)
+        # pcNpy = dat1.vertices
+        # # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
 
+        #use Ouster sample dataset (from high fidelity 128-channel sensor!)
+        idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx
+        fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
+        print("Publishing", fn1)
+        df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
+        pcNpy = df1.values[:,8:11]*0.001 #1st sensor return
+        # pcNpy = df1.values[:,11:14]*0.001 #2nd sensor return
 
         #publish point cloud as numpy_msg (rospy)
         # pcNpyPub.publish(pcNpy)
@@ -89,7 +99,6 @@ def main():
         #publish point cloud as point_cloud2 message (better?)
         pcPub.publish(point_cloud(pcNpy, 'map'))
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
         # publish custom <Num> message type~~~~~~~~~~~~~~~~~
         msg = Num()

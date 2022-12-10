@@ -619,7 +619,7 @@ class ICET():
 			# c = Points(self.cloud2_static, c = (0,1,1), r = 5, alpha = 1.)
 			# self.disp.append(c)
 		else:
-			self.cloud2_static = self.cloud2_tensor_OG
+			self.cloud2_static = self.cloud2_tensor_OG.numpy()
 
 		# for i in (self.cloud2_static):		#inefficient
 		# 	self.draw_cloud(i.numpy(), pc = 3)

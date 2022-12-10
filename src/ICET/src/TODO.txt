@@ -25,7 +25,7 @@
     -look into passthrough nodes
 
 
--<GraphSlammer>
+-<GraphMaker>
   - constantly take in local transformation estimates between sets of point clouds
 
   - allow multiple instances of /scanmatcher to be run in parallel
@@ -36,6 +36,15 @@
 
   - output estimated pose (rotation and translation) for all available timesteps
       - zero out estimates if no possible registration at that time
+
+-<DownSampler>
+
+  -every time LIDAR scanner publishes, grabs 10_000 points from the scan.
+
+  -continuously holds on to the downsampled points from each scan until drive resets
+
+  -when called, shares each requested point cloud with MapMaker 
+
 
 -Launch File
   -tbh it's pretty annoying to have to open a half dozen terminals to manually run the SLAM process 

@@ -13,8 +13,10 @@ from laser_geometry import LaserProjection
 from utils import R_tf
 
 class MapMaker():
-    """mapmaker node uses transformations output by <scanmatcher> to combine multiple point clouds
-        into single HD map """
+    """ simplified mapmaker node uses transformations output by <scanmatcher> to combine multiple point clouds
+        into single HD map. 
+
+        Does NOT make use of graph optimization"""
     
     def __init__(self, scan_topic="static_point_cloud"):
         # self.scan_sub = rospy.Subscriber(scan_topic, LaserScan, self.on_scan)
@@ -35,7 +37,7 @@ class MapMaker():
         #TODO: make this 6DOF
         self.global_pose = np.array([0., 0., 0.])
 
-        r = 10
+        r = 100
         self.rate = rospy.Rate(r)
 
     def point_cloud(self, points, parent_frame):
@@ -74,12 +76,6 @@ class MapMaker():
     def update_map(self):
         """add new scan to HD map"""
 
-        #Clear map if restart == True
-        print("restart: ", self.scan_data.restart)
-        if self.scan_data.restart == True:
-            self.map_xyz = np.array([[0., 0., 0.]])
-            self.global_pose = np.array([0., 0. ,0.])
-
         # self.newscan_xyz = self.newscan_xyz[self.newscan_xyz[:,2] > -1.65] #remove ground plane
         self.newscan_xyz = self.newscan_xyz[np.random.choice(len(self.newscan_xyz), size = self.downsample_size)]  #downsample
 
@@ -96,12 +92,17 @@ class MapMaker():
         print("\n", np.shape(self.map_xyz))
 
         #add two clouds together to update Map
-        transformed_old_map = self.map_xyz.dot(rot) - trans
-        self.map_xyz = np.append(transformed_old_map, self.newscan_xyz, axis = 0)
-        # #old --------------
-        # self.global_pose = self.global_pose + trans
-        # self.map_xyz = np.append(self.map_xyz, self.newscan_xyz + self.global_pose, axis = 0)
+        # #new-----------------
+        # # transformed_old_map = self.map_xyz.dot(rot) - trans #old -- wrong??
+        # transformed_old_map = (self.map_xyz + trans).dot(rot)
+        # self.map_xyz = np.append(transformed_old_map, self.newscan_xyz, axis = 0)
+
         # #------------------
+
+        #old --------------
+        self.global_pose = self.global_pose + trans
+        self.map_xyz = np.append(self.map_xyz, self.newscan_xyz + self.global_pose, axis = 0)
+        #------------------
 
         self.mapPub.publish(self.point_cloud(self.map_xyz, 'map')) #publish updated map
 
@@ -111,6 +112,12 @@ class MapMaker():
         # rospy.loginfo("got data!")
         self.scan_data = data
         print("frame idx:", data.frame)
+
+        if self.scan_data.restart == True:
+            print("restart: ", self.scan_data.restart)
+            self.map_xyz = np.array([[0., 0., 0.]])  #Clear map
+            self.global_pose = np.array([0., 0. ,0.])
+
 
     def on_transform(self, local_estimate):
         """called when ScanMatcher node publishes local transformation estimate"""

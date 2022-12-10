@@ -85,7 +85,7 @@ def main():
         # pcNpy = dat1.vertices
         # # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
 
-        #use Ouster sample dataset (from high fidelity 128-channel sensor!)
+        #use Ouster sample dataset (from high fidelity 128-channel sensor!) 719 frames total
         idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx
         fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
         # idx = int(r*rospy.get_time()%140) + 1 #only play every 5th frame

@@ -51,6 +51,10 @@ class ScanMatcher():
         r = 10 #not going to be able to actually run this fast, but no harm in setting at 10 Hz
         self.rate = rospy.Rate(r)
 
+        self.remove_moving_objects = False
+        # self.remove_moving_objects = True
+
+
         self.reset()
 
     def reset(self):
@@ -64,7 +68,6 @@ class ScanMatcher():
 
         if self.scan_data.frame == 0:
             self.reset()
-            #TODO- save to disk overall trajectory at the end??
 
     def on_scan(self, scan):
         """Finds the transformation between current and previous frames"""
@@ -90,8 +93,8 @@ class ScanMatcher():
 
         if self.keyframe_scan is not None and self.new_scan is not None:
 
-            it = ICET(cloud1 = self.keyframe_scan, cloud2 = self.new_scan, fid = 70, niter = 5, 
-                draw = False, group = 2, RM = True, DNN_filter = False, x0 = self.x0)
+            it = ICET(cloud1 = self.keyframe_scan, cloud2 = self.new_scan, fid = 50, niter = 5, 
+                draw = False, group = 2, RM = self.remove_moving_objects, DNN_filter = False, x0 = self.x0)
 
             self.X = it.X
             self.pred_stds = it.pred_stds 

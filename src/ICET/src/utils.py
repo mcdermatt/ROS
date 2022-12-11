@@ -89,7 +89,7 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough, batch_dims=1) + 1
     inner_radii  = tf.gather(tf.transpose(rads), inner_idx, batch_dims=1)
     #get radial distance of closest point on near side of cluster
-    next_inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough-1, batch_dims=1)
+    next_inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough-1, batch_dims=1) - 1
     next_inner_radii = tf.gather(tf.transpose(rads), next_inner_idx, batch_dims=1) 
 
     #will be zero when inner idx occurs on first element of spike, otherwise correct soln

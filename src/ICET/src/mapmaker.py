@@ -13,10 +13,10 @@ from laser_geometry import LaserProjection
 from utils import R_tf
 
 class MapMaker():
-    """ simplified mapmaker node uses transformations output by <scanmatcher> to combine multiple point clouds
+    """ simplified mapmaker node uses sequential transformations output by <scanmatcher> to combine multiple point clouds
         into single HD map. 
 
-        Does NOT make use of graph optimization"""
+        Does NOT make use of factor graph optimization"""
     
     def __init__(self, scan_topic="static_point_cloud"):
         # self.scan_sub = rospy.Subscriber(scan_topic, LaserScan, self.on_scan)
@@ -28,14 +28,15 @@ class MapMaker():
         self.scan_sub = rospy.Subscriber(scan_topic, PointCloud2, self.on_scan)
         self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
         self.mapPub = rospy.Publisher('hd_map', PointCloud2, queue_size = 10)
+        self.snailPub = rospy.Publisher('snail_trail', PointCloud2, queue_size = 10)
         self.downsample_size = 30_000 #10000 #size of each sub-cloud
 
         #subscribe to local transformation estimates output by ScanMatcher
         self.Tsub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
 
         self.map_xyz = np.array([[0., 0., 0.]])
-        #TODO: make this 6DOF
-        self.global_pose = np.array([0., 0., 0.])
+        self.snail_trail = np.array([[0., 0., 0.]])
+
 
         r = 100
         self.rate = rospy.Rate(r)
@@ -79,32 +80,34 @@ class MapMaker():
         # self.newscan_xyz = self.newscan_xyz[self.newscan_xyz[:,2] > -1.65] #remove ground plane
         self.newscan_xyz = self.newscan_xyz[np.random.choice(len(self.newscan_xyz), size = self.downsample_size)]  #downsample
 
-        #get transformation to align new cloud with existing map
-        # for debug: cheat with access to ground truth transform 
-        # trans = self.scan_data.true_transform[:3]
 
         # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
         trans = self.local_estimate[:3]
-        print("trans:", trans)
+        # for debug: cheat with access to ground truth transform 
+        # trans = self.scan_data.true_transform[:3]
+        print("\n trans:", trans)
+
+        #add two clouds together to update Map--------------------------
+        #vehicle centric - don't have to keep track of cumulative rotations >:)
         rot = R_tf(-np.array(self.local_estimate[3:6])).numpy()
         print("rot", rot)
-
-        print("\n", np.shape(self.map_xyz))
-
-        #add two clouds together to update Map
-        # #new-----------------
-        # # transformed_old_map = self.map_xyz.dot(rot) - trans #old -- wrong??
-        # transformed_old_map = (self.map_xyz + trans).dot(rot)
-        # self.map_xyz = np.append(transformed_old_map, self.newscan_xyz, axis = 0)
-
-        # #------------------
-
-        #old --------------
-        self.global_pose = self.global_pose + trans
-        self.map_xyz = np.append(self.map_xyz, self.newscan_xyz + self.global_pose, axis = 0)
-        #------------------
-
+        # transformed_old_map = self.map_xyz.dot(rot) - trans 
+        transformed_old_map = (self.map_xyz - trans).dot(rot) #trans then rotate needed for ICET transform outputs
+        self.map_xyz = np.append(transformed_old_map, self.newscan_xyz, axis = 0)
         self.mapPub.publish(self.point_cloud(self.map_xyz, 'map')) #publish updated map
+        #---------------------------------------------------------------
+
+    def update_snail_trail(self):
+        """ update trail of points that visualize the vehicle COM over each frame """
+
+        # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
+        trans = self.local_estimate[:3]
+        rot = R_tf(-np.array(self.local_estimate[3:6])).numpy()
+
+        transformed_old_trail = (self.snail_trail - trans).dot(rot)
+        
+        self.snail_trail = np.append(transformed_old_trail, np.zeros([1,3]), axis = 0)
+        self.snailPub.publish(self.point_cloud(self.snail_trail, 'map')) #coordinate frame = map
 
     def get_info(self, data):
         """ Gets Lidar info from custom Num msg """
@@ -116,7 +119,7 @@ class MapMaker():
         if self.scan_data.restart == True:
             print("restart: ", self.scan_data.restart)
             self.map_xyz = np.array([[0., 0., 0.]])  #Clear map
-            self.global_pose = np.array([0., 0. ,0.])
+            self.snail_trail = np.array([[0., 0., 0.]])  #Clear snail trail
 
 
     def on_transform(self, local_estimate):
@@ -141,6 +144,7 @@ class MapMaker():
         # print(self.newscan_xyz[:10])
 
         self.update_map()
+        self.update_snail_trail()
 
 if __name__ == '__main__':
     m = MapMaker()

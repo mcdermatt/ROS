@@ -5,13 +5,27 @@ import numpy as np
 from rospy.numpy_msg import numpy_msg
 from rospy_tutorials.msg import Floats
 import pandas as pd
-
 import std_msgs.msg as std_msgs
 import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
-
 import trimesh #when using KITTI_CARLA dataset
+from utils import R_tf
+import pykitti
+import tensorflow as tf
+
+#limit GPU memory ---------------------------------------------------------------------
+# if you don't include this TensorFlow WILL eat up all your VRAM and make rviz run poorly
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
+if gpus:
+  try:
+    memlim = 4*1024
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
+  except RuntimeError as e:
+    print(e)
+#--------------------------------------------------------------------------------------
+
 
 """script to publish custom LIDAR point cloud messages"""
 
@@ -63,8 +77,8 @@ def main():
     etcPub = rospy.Publisher('lidar_info', Num, queue_size=10) #This publisher can hold 10 msgs that haven't been sent yet.  
     rospy.init_node('LidarScanner', anonymous=False)
     # r = 10 #real time (too fast to work at full resolution)
-    r = 5 #slower real time (some sensors run at 5Hz)
-    # r = 1
+    # r = 5 #slower real time (some sensors run at 5Hz)
+    r = 1
     rate = rospy.Rate(r) # hz
     
     while not rospy.is_shutdown(): # While there's a roscore
@@ -76,43 +90,57 @@ def main():
         # print(idx)
         # fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
         # pcNpy = np.loadtxt(fn)
-        # # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
+        # pcNpy += 0.02*np.random.randn(np.shape(pcNpy)[0], 3) #simulate sensor noise (important)
+        # rot = R_tf(tf.constant([0., 0., idx*0.05])) #simulate constant turning
+        # pcNpy = pcNpy @ rot.numpy() 
+
 
         # #use KITTI_CARLA synthetic LIDAR data
         # idx = int(r*rospy.get_time()%400) + 2300 #use ROS timestamp as seed for scan idx
         # fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx)
+        # print("Publishing", fn)
         # dat1 = trimesh.load(fn)
         # pcNpy = dat1.vertices
         # # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
 
-        #use Ouster sample dataset (from high fidelity 128-channel sensor!) 719 frames total
-        idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx
-        fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
-        # idx = int(r*rospy.get_time()%140) + 1 #only play every 5th frame
-        # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(5*idx)
+        #use KITTI raw dataset
+        basedir = '/media/derm/06EF-127D2/KITTI'
+        date = '2011_09_26'
+        # drive = '0005' #traffic circle, city, 150
+        # drive = '0027' #straght highway, dense forest
+        drive = '0095' #dense residential, 260
+        dataset = pykitti.raw(basedir, date, drive)
+        idx = int(r*rospy.get_time()%260) + 1 #
+        velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+        pcNpy = velo1[:,:3]
+        print("Publishing", basedir + '/' + date + '/' + drive + '/' + str(idx))
 
-        print("Publishing", fn1)
-        df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
-        pcNpy = df1.values[:,8:11]*0.001 #1st sensor return
-        # pcNpy = df1.values[:,11:14]*0.001 #2nd sensor return
 
-        #publish point cloud as numpy_msg (rospy)
-        # pcNpyPub.publish(pcNpy)
-
-        #publish point cloud as point_cloud2 message (better?)
-        pcPub.publish(point_cloud(pcNpy, 'map'))
+        # #use Ouster sample dataset (from high fidelity 128-channel sensor!) 719 frames total
+        # idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx
+        # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
+        # # idx = int(r*rospy.get_time()%140) + 1 #only play every 5th frame
+        # # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(5*idx)
+        # print("Publishing", fn1)
+        # df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
+        # pcNpy = df1.values[:,8:11]*0.001 #1st sensor return (what we want)
+        # # pcNpy = df1.values[:,11:14]*0.001 #2nd sensor return (not useful here)
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        # pcNpyPub.publish(pcNpy)                #publish point cloud as numpy_msg (rospy)
+        pcPub.publish(point_cloud(pcNpy, 'map')) #publish point cloud as point_cloud2 message
 
         # publish custom <Num> message type~~~~~~~~~~~~~~~~~
         msg = Num()
         msg.frame = idx
-        if idx == 1:
+        # if idx == 1: 
+        if idx < 3: #for debug
             msg.restart = True
         else:
             msg.restart = False
 
-        #have prior knowledge of ground truth for simulated dummy data
-        msg.true_transform = [0.5, 0.0, 0.0, 0.0, 0.0, 0.00] #[x, y, z, r, p, y]
+        #for debug: provide prior knowledge of ground truth for simulated dummy data
+        msg.true_transform = [0.0, 0.0, 0.0, 0.0, 0.0, 0.00] #[x, y, z, r, p, y]
 
         status_str =  "Frame # " + str(idx) + " Lidar Timestamp %s" % rospy.get_time() # 
         msg.status = status_str

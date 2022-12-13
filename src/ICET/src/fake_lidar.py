@@ -29,10 +29,6 @@ if gpus:
 
 """script to publish custom LIDAR point cloud messages"""
 
-#TODO: 
-#       make publishing a service 
-#       -> wait until listener is done registering previous cloud to send next
-
 def point_cloud(points, parent_frame):
     """ Creates a point cloud message.
     Args:
@@ -78,6 +74,7 @@ def main():
     rospy.init_node('LidarScanner', anonymous=False)
     # r = 10 #real time (too fast to work at full resolution)
     # r = 5 #slower real time (some sensors run at 5Hz)
+    # r = 2
     r = 1
     rate = rospy.Rate(r) # hz
     
@@ -106,15 +103,14 @@ def main():
         #use KITTI raw dataset
         basedir = '/media/derm/06EF-127D2/KITTI'
         date = '2011_09_26'
-        # drive = '0005' #traffic circle, city, 150
+        drive = '0005' #traffic circle, city, 150
         # drive = '0027' #straght highway, dense forest
-        drive = '0095' #dense residential, 260
+        # drive = '0095' #dense residential, 260
         dataset = pykitti.raw(basedir, date, drive)
-        idx = int(r*rospy.get_time()%260) + 1 #
+        idx = int(r*rospy.get_time()%150) + 1 #
         velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
         pcNpy = velo1[:,:3]
         print("Publishing", basedir + '/' + date + '/' + drive + '/' + str(idx))
-
 
         # #use Ouster sample dataset (from high fidelity 128-channel sensor!) 719 frames total
         # idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx

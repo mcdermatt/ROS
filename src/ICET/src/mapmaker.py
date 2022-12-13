@@ -29,7 +29,7 @@ class MapMaker():
         self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
         self.mapPub = rospy.Publisher('hd_map', PointCloud2, queue_size = 10)
         self.snailPub = rospy.Publisher('snail_trail', PointCloud2, queue_size = 10)
-        self.downsample_size = 30_000 #10000 #size of each sub-cloud
+        self.downsample_size = 10_000 #10_000 #size of each sub-cloud
 
         #subscribe to local transformation estimates output by ScanMatcher
         self.Tsub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 

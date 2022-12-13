@@ -2,13 +2,17 @@
 
 ~~~~~~~~~~~~~~~~~~~P1~~~~~~~~~~~~~~~~~~~~~~~~~
 -<ScanMatcher>
+
+  -TODO: scale initial estimate of pose depending on how many frames have been skipped in the associated ICET thread
+
   publish message with each sequntial transformation
     store message history with #frame ID + transformation since last frame
 
   figure out how to deal with inconsistant registration rate
     associte frame ID's with each transformations?
 
--<MapMaker>
+-<MapMaker_simple>
+
   -subscribe to transformation messages from GraphSlammer??
 
   -subscribe to downsampled point clouds from ICET containing non-moving points

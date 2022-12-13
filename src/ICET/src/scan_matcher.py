@@ -10,16 +10,22 @@ import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
 from laser_geometry import LaserProjection
-import tensorflow as tf
+import tensorflow #as tf #pretty dumb naming convention smh
+
+import sys
+# import tf 
+import tf_conversions
+import tf2_ros
+import geometry_msgs.msg
 
 #limit GPU memory ---------------------------------------------------------------------
 # if you don't include this TensorFlow WILL eat up all your VRAM and make rviz run poorly
-gpus = tf.config.experimental.list_physical_devices('GPU')
+gpus = tensorflow.config.experimental.list_physical_devices('GPU')
 print(gpus)
 if gpus:
   try:
     memlim = 4*1024
-    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
+    tensorflow.config.experimental.set_virtual_device_configuration(gpus[0], [tensorflow.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
   except RuntimeError as e:
     print(e)
 #--------------------------------------------------------------------------------------
@@ -43,10 +49,15 @@ class ScanMatcher():
 
         self.scan_sub = rospy.Subscriber(scan_topic, PointCloud2, self.on_scan)
         self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
-        self.TPub = rospy.Publisher('relative_transform', Floats, queue_size = 10)
+        self.TPub = rospy.Publisher('relative_transform', Floats, queue_size = 10) #simple array output
         self.SigmaPub = rospy.Publisher('relative_covariance', Floats, queue_size = 10)
         #for publishing corrected point clouds with moving objects removed
         self.pcPub = rospy.Publisher('static_point_cloud', PointCloud2, queue_size = 10)
+
+
+        #tf uses "broadcasters" instead of publishers
+        # self.broadcaster = tf2_ros.StaticTransformBroadcaster() #tf static transform: don't change over time (not what we want!)
+        self.broadcaster = tf2_ros.TransformBroadcaster() #tf transform: assumed to change over time
 
         r = 10 #not going to be able to actually run this fast, but no harm in setting at 10 Hz
         self.rate = rospy.Rate(r)
@@ -60,7 +71,7 @@ class ScanMatcher():
     def reset(self):
         self.keyframe_scan = None #init scans1 and 2
         self.new_scan = None
-        self.x0 = tf.constant([0., 0., 0., 0., 0., 0.])
+        self.x0 = tensorflow.constant([0., 0., 0., 0., 0., 0.])
 
     def get_info(self, data):
         """ Gets Lidar info from custom Num msg """
@@ -111,6 +122,32 @@ class ScanMatcher():
             sigma_msg = np.append(self.pred_stds, (self.keyframe_idx, self.new_scan_idx))
             print("\n sigma_msg", sigma_msg)
             self.SigmaPub.publish(sigma_msg)
+
+
+            #broadcast transform using tf message--------------------------------------- 
+            #DEBUG WITH <rosrun rqt_tf_tree rqt_tf_tree>
+
+            t = geometry_msgs.msg.TransformStamped()
+            t.header.stamp = rospy.Time.now()
+
+            #set parent frame
+            # t.header.frame_id = "map" #temp (set as origin)
+            t.header.frame_id = "odom" #test
+            # t.header.frame_id = "last_frame" #TODO-- set as previously stamped frame in this ICET thread
+
+            child_name = 'child_tf_frame'
+            t.child_frame_id = child_name
+            t.transform.translation.x = self.X[0]
+            t.transform.translation.y = self.X[1]
+            t.transform.translation.z = self.X[2]
+            q = tf_conversions.transformations.quaternion_from_euler(self.X[3], self.X[4], self.X[5])
+            t.transform.rotation.x = q[0]
+            t.transform.rotation.y = q[1]
+            t.transform.rotation.z = q[2]
+            t.transform.rotation.w = q[3]
+            # print(t)
+            self.broadcaster.sendTransform(t) #shares the transform but doesn't actually publish? (need to manually add pub node in launch file)
+            #----------------------------------------------------------------------------
 
             #publish non-moving points in new scan
             #   (overridden by self.keyframe_scan if ICET isn't running moving object suppression)

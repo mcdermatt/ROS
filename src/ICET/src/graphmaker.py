@@ -12,11 +12,16 @@ from sensor_msgs.msg import PointCloud2, PointField
 from laser_geometry import LaserProjection
 from utils import R_tf
 
+import tf
+import tf2_ros
+import tf2_geometry_msgs
+
 class GraphMaker():
     """ Attemps to optimize many local transformations coming from simulatneous ICET scan registrations
 
-        Publishes optimized overall trajectory
+        Takes in tf2 outputs from each ICET thread
 
+        Publishes optimized overall trajectory
         Publishes SMOOTHED trajectory from subsequent measurements
     
     """
@@ -26,16 +31,17 @@ class GraphMaker():
         rospy.init_node('graphmaker', anonymous=False)
 
         #Need this to know when LIDAR drive trajectory restarts
-        self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
+        # self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
 
+        #using numpy + raw transfrom outputs (more difficult) ----------------
         #subscribe to local transformation estimates output by ScanMatcher
-        self.TSub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
-        self.SigmaSub = rospy.Subscriber('relative_covariance', Floats, self.on_cov) 
-
+        # self.TSub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
+        # self.SigmaSub = rospy.Subscriber('relative_covariance', Floats, self.on_cov) 
         #publish overall trajectory
-        self.GraphPub = rospy.Publisher('graph', numpy_msg(Floats), queue_size = 1)
+        # self.GraphPub = rospy.Publisher('graph', numpy_msg(Floats), queue_size = 1)
+        #---------------------------------------------------------------------
 
-        r = 100
+        r = 10
         self.rate = rospy.Rate(r)
 
         self.restart()
@@ -79,8 +85,23 @@ class GraphMaker():
 
 
 if __name__ == '__main__':
-    m = GraphMaker()
+
+    rospy.init_node('graphmaker')
+
+    source_frame = 'map'
+    target_frame = 'child_tf_frame'
+
+    #use tf2 frames output by <scan_matcher> (more direct??)
+    tfbuffer = tf2_ros.Buffer()
+    listener = tf2_ros.TransformListener(tfbuffer)
+
+    rate = rospy.Rate(1)
 
     while not rospy.is_shutdown():
 
-        rospy.spin()
+        rate.sleep()
+        try:
+            trans = tfbuffer.lookup_transform(target_frame, source_frame, rospy.Time())
+            print("\n trans: \n", trans)
+        except:
+            print("not ready")

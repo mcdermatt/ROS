@@ -8,7 +8,6 @@ import std_msgs.msg as std_msgs
 import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
-from laser_geometry import LaserProjection
 
 from utils import R_tf
 
@@ -16,20 +15,17 @@ class MapMaker():
     """ simplified mapmaker node uses sequential transformations output by <scanmatcher> to combine multiple point clouds
         into single HD map. 
 
-        Does NOT make use of factor graph optimization"""
+        Does NOT make use of graph slam/ factor graph optimization"""
     
     def __init__(self, scan_topic="static_point_cloud"):
-        # self.scan_sub = rospy.Subscriber(scan_topic, LaserScan, self.on_scan)
-        self.laser_projector = LaserProjection()
 
         rospy.init_node('mapmaker', anonymous=True)
 
-        #TODO: make this subscribe to point clouds published by scan_matcher???
         self.scan_sub = rospy.Subscriber(scan_topic, PointCloud2, self.on_scan)
         self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
         self.mapPub = rospy.Publisher('hd_map', PointCloud2, queue_size = 10)
-        self.snailPub = rospy.Publisher('snail_trail', PointCloud2, queue_size = 10)
-        self.downsample_size = 10_000 #10_000 #size of each sub-cloud
+        self.snailPub = rospy.Publisher('snail_trail', PointCloud2, queue_size = 1)
+        self.downsample_size = 100_000 #10_000 #size of each sub-cloud
 
         #subscribe to local transformation estimates output by ScanMatcher
         self.Tsub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
@@ -37,6 +33,9 @@ class MapMaker():
         self.map_xyz = np.array([[0., 0., 0.]])
         self.snail_trail = np.array([[0., 0., 0.]])
 
+        # self.global_pose = np.array([0.,0.,0.])
+        self.global_pose = np.array([0.,0.,0., 0., 0., 0.])
+        self.rot = 1 #debug
 
         r = 100
         self.rate = rospy.Rate(r)
@@ -80,21 +79,37 @@ class MapMaker():
         # self.newscan_xyz = self.newscan_xyz[self.newscan_xyz[:,2] > -1.65] #remove ground plane
         self.newscan_xyz = self.newscan_xyz[np.random.choice(len(self.newscan_xyz), size = self.downsample_size)]  #downsample
 
-
-        # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
-        trans = self.local_estimate[:3]
-        # for debug: cheat with access to ground truth transform 
-        # trans = self.scan_data.true_transform[:3]
-        print("\n trans:", trans)
-
         #add two clouds together to update Map--------------------------
-        #vehicle centric - don't have to keep track of cumulative rotations >:)
+        #keep vehicle in center of frame~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
+        #[x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
+        trans = self.local_estimate[:3]
+        print("\n trans:", trans)
         rot = R_tf(-np.array(self.local_estimate[3:6])).numpy()
         print("rot", rot)
-        # transformed_old_map = self.map_xyz.dot(rot) - trans 
         transformed_old_map = (self.map_xyz - trans).dot(rot) #trans then rotate needed for ICET transform outputs
         self.map_xyz = np.append(transformed_old_map, self.newscan_xyz, axis = 0)
-        self.mapPub.publish(self.point_cloud(self.map_xyz, 'map')) #publish updated map
+        self.mapPub.publish(self.point_cloud(self.map_xyz, 'map'))
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        # #transform new PC so map stays in place ~~~~~~~~~~~~~~~~~~~~~~~
+        # self.global_pose += self.local_estimate[:6] #wrong
+        # self.global_pose[3:] += self.local_estimate[3:6] #update angles
+        # self.global_pose[:3] += np.array(self.local_estimate[:3]).dot(R_tf(self.global_pose[3:]).numpy()) #update xyz
+
+        # print("\n global_pose", self.global_pose)
+        # # self.rot = R_tf(np.array(self.local_estimate[3:6])).numpy().dot(self.rot) #??
+        # self.rot = R_tf(self.global_pose[3:])
+        # print("rot", self.rot)
+
+        # # transformed_new_scan = (self.newscan_xyz + self.global_pose[:3]).dot(self.rot)
+        # transformed_new_scan = (self.newscan_xyz.dot(self.rot) + self.global_pose[:3]) #almost works??
+
+        # self.map_xyz = np.append(self.map_xyz, transformed_new_scan, axis = 0)
+        # self.mapPub.publish(self.point_cloud(self.map_xyz, 'map'))
+        # self.mapPub.publish(self.point_cloud(self.map_xyz + self.global_pose[:3], 'map'))
+        # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
         #---------------------------------------------------------------
 
     def update_snail_trail(self):
@@ -103,11 +118,17 @@ class MapMaker():
         # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
         trans = self.local_estimate[:3]
         rot = R_tf(-np.array(self.local_estimate[3:6])).numpy()
-
         transformed_old_trail = (self.snail_trail - trans).dot(rot)
-        
         self.snail_trail = np.append(transformed_old_trail, np.zeros([1,3]), axis = 0)
+
+        #keep vehicle in center of frame~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
         self.snailPub.publish(self.point_cloud(self.snail_trail, 'map')) #coordinate frame = map
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        #stay centered at starting location~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # self.snailPub.publish(self.point_cloud(self.snail_trail + self.global_pose[:3], 'map')) #coordinate frame = map
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
     def get_info(self, data):
         """ Gets Lidar info from custom Num msg """
@@ -119,7 +140,11 @@ class MapMaker():
         if self.scan_data.restart == True:
             print("restart: ", self.scan_data.restart)
             self.map_xyz = np.array([[0., 0., 0.]])  #Clear map
+            self.mapPub.publish(self.point_cloud(self.map_xyz, 'map')) #publish updated map
             self.snail_trail = np.array([[0., 0., 0.]])  #Clear snail trail
+            self.snailPub.publish(self.point_cloud(self.snail_trail, 'map')) #coordinate frame = map
+            # self.global_pose = np.array([0.,0.,0.])
+            self.global_pose = np.array([0.,0.,0., 0., 0., 0.])
 
 
     def on_transform(self, local_estimate):

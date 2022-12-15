@@ -13,6 +13,7 @@ import trimesh #when using KITTI_CARLA dataset
 from utils import R_tf
 import pykitti
 import tensorflow as tf
+from time import sleep
 
 #limit GPU memory ---------------------------------------------------------------------
 # if you don't include this TensorFlow WILL eat up all your VRAM and make rviz run poorly
@@ -67,30 +68,34 @@ def main():
     # pcNpyPub = rospy.Publisher('numpy_cloud', numpy_msg(Floats), queue_size = 1)
 
     # traditional pointcloud2 msg
-    pcPub = rospy.Publisher('raw_point_cloud', PointCloud2, queue_size = 10)
+    pcPub = rospy.Publisher('raw_point_cloud', PointCloud2, queue_size = 1)
 
     # publish custom message with additional LIDAR info
-    etcPub = rospy.Publisher('lidar_info', Num, queue_size=10) #This publisher can hold 10 msgs that haven't been sent yet.  
+    etcPub = rospy.Publisher('lidar_info', Num, queue_size=1) #This publisher can hold 10 msgs that haven't been sent yet.  
     rospy.init_node('LidarScanner', anonymous=False)
     # r = 10 #real time (too fast to work at full resolution)
-    # r = 5 #slower real time (some sensors run at 5Hz)
+    r = 5 #slower real time (many sensors run at 5Hz)
     # r = 2
-    r = 1
+    # r = 1
     rate = rospy.Rate(r) # hz
     
+    start_time = rospy.get_time()
+
     while not rospy.is_shutdown(): # While there's a roscore
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # # use simulated point clouds I generated for a previous publication 
         # # https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
-        # idx = int(r*rospy.get_time()%40) + 1 #use ROS timestamp as seed for scan idx
+        # runlen = 40 #this many frames in the dataset
+        # # idx = int(r*rospy.get_time()%runlen) + 1 #use ROS timestamp as seed for scan idx
+        # # idx = int(2*r*rospy.get_time()%runlen) + 1 #use ROS timestamp as seed for scan idx
+        # idx = int(r*(rospy.get_time() - start_time)%runlen) + 1 #test
         # print(idx)
         # fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
         # pcNpy = np.loadtxt(fn)
         # pcNpy += 0.02*np.random.randn(np.shape(pcNpy)[0], 3) #simulate sensor noise (important)
         # rot = R_tf(tf.constant([0., 0., idx*0.05])) #simulate constant turning
         # pcNpy = pcNpy @ rot.numpy() 
-
 
         # #use KITTI_CARLA synthetic LIDAR data
         # idx = int(r*rospy.get_time()%400) + 2300 #use ROS timestamp as seed for scan idx
@@ -100,27 +105,31 @@ def main():
         # pcNpy = dat1.vertices
         # # pcNpy = pcNpy[pcNpy[:,2] > -1.5] #debug
 
-        #use KITTI raw dataset
-        basedir = '/media/derm/06EF-127D2/KITTI'
-        date = '2011_09_26'
-        drive = '0005' #traffic circle, city, 150
-        # drive = '0027' #straght highway, dense forest
-        # drive = '0095' #dense residential, 260
-        dataset = pykitti.raw(basedir, date, drive)
-        idx = int(r*rospy.get_time()%150) + 1 #
-        velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-        pcNpy = velo1[:,:3]
-        print("Publishing", basedir + '/' + date + '/' + drive + '/' + str(idx))
+        # # use KITTI raw dataset
+        # basedir = '/media/derm/06EF-127D2/KITTI'
+        # date = '2011_09_26'
+        # drive = '0005' #traffic circle, city, 150
+        # # drive = '0027' #straght highway, dense forest
+        # # drive = '0095' #dense residential, 260
+        # dataset = pykitti.raw(basedir, date, drive)
+        # runlen = 150
+        # # idx = int(r*rospy.get_time()%150) + 1
+        # idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
+        # velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+        # pcNpy = velo1[:,:3]
+        # print("Publishing", basedir + '/' + date + '/' + drive + '/' + str(idx))
 
-        # #use Ouster sample dataset (from high fidelity 128-channel sensor!) 719 frames total
+        #use Ouster sample dataset (from high fidelity 128-channel sensor!) 719 frames total
+        runlen = 715
         # idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx
-        # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
-        # # idx = int(r*rospy.get_time()%140) + 1 #only play every 5th frame
-        # # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(5*idx)
-        # print("Publishing", fn1)
-        # df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
-        # pcNpy = df1.values[:,8:11]*0.001 #1st sensor return (what we want)
-        # # pcNpy = df1.values[:,11:14]*0.001 #2nd sensor return (not useful here)
+        idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
+        fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
+        # idx = int(r*rospy.get_time()%140) + 1 #only play every 5th frame
+        # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(5*idx)
+        print("Publishing", fn1)
+        df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
+        pcNpy = df1.values[:,8:11]*0.001 #1st sensor return (what we want)
+        # pcNpy = df1.values[:,11:14]*0.001 #2nd sensor return (not useful here)
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         # pcNpyPub.publish(pcNpy)                #publish point cloud as numpy_msg (rospy)
@@ -148,6 +157,12 @@ def main():
         
         # sleep so we don't publish way too many messages per second. This also gives us a chance to process incoming messages (but this node has no incoming messages)
         rate.sleep()
+
+        if idx == runlen:
+            print("\n resetting LIDAR sensor")
+            sleep(5)
+            print("\n done")
+            start_time = rospy.get_time()
 
 if __name__ == '__main__': # this runs when the file is run
     try: # the try catch block allows this code to easily be interrupted without hanging

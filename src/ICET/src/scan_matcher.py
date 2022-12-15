@@ -9,7 +9,7 @@ from rospy_tutorials.msg import Floats
 import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
-from laser_geometry import LaserProjection
+# from laser_geometry import LaserProjection
 import tensorflow #as tf #pretty dumb naming convention smh
 
 import sys
@@ -17,6 +17,9 @@ import sys
 import tf_conversions
 import tf2_ros
 import geometry_msgs.msg
+
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
 
 #limit GPU memory ---------------------------------------------------------------------
 # if you don't include this TensorFlow WILL eat up all your VRAM and make rviz run poorly
@@ -32,6 +35,8 @@ if gpus:
 
 from ICET_spherical import ICET #my point cloud registration algorithm
 
+#TODO: don't output anything if LIDAR just reset
+#      clear queue???
 
 class ScanMatcher():
     """scanmatcher node subscribes to /point_cloud topic and attemts to 
@@ -43,7 +48,7 @@ class ScanMatcher():
     
     def __init__(self, scan_topic="raw_point_cloud"):
         # self.scan_sub = rospy.Subscriber(scan_topic, LaserScan, self.on_scan)
-        self.laser_projector = LaserProjection()
+        # self.laser_projector = LaserProjection()
 
         rospy.init_node('scanmatcher', anonymous=True)
 
@@ -52,14 +57,19 @@ class ScanMatcher():
         self.TPub = rospy.Publisher('relative_transform', Floats, queue_size = 10) #simple array output
         self.SigmaPub = rospy.Publisher('relative_covariance', Floats, queue_size = 10)
         #for publishing corrected point clouds with moving objects removed
-        self.pcPub = rospy.Publisher('static_point_cloud', PointCloud2, queue_size = 10)
+        self.pcPub = rospy.Publisher('static_point_cloud', PointCloud2, queue_size = 1)
 
 
         #tf uses "broadcasters" instead of publishers
         # self.broadcaster = tf2_ros.StaticTransformBroadcaster() #tf static transform: don't change over time (not what we want!)
         self.broadcaster = tf2_ros.TransformBroadcaster() #tf transform: assumed to change over time
 
-        r = 10 #not going to be able to actually run this fast, but no harm in setting at 10 Hz
+        #TEST~~~~~~~
+        self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=50)
+        self.odom_broadcaster = tf2_ros.TransformBroadcaster()
+        #~~~~~~~~~~~
+
+        r = 100 #not going to be able to actually run this fast, but no harm in setting at 10 Hz
         self.rate = rospy.Rate(r)
 
         self.remove_moving_objects = False
@@ -77,7 +87,10 @@ class ScanMatcher():
         """ Gets Lidar info from custom Num msg """
         self.scan_data = data
 
-        if self.scan_data.frame == 0:
+        # if self.scan_data.frame < 3:
+        #     self.reset()
+
+        if self.scan_data.restart == True:
             self.reset()
 
     def on_scan(self, scan):
@@ -111,7 +124,7 @@ class ScanMatcher():
             self.pred_stds = it.pred_stds 
             self.new_scan_static_points = it.cloud2_static  #hold on to non-moving points
 
-            # self.x0 = self.X    #set inital conditions for next registration 
+            self.x0 = self.X    #set inital conditions for next registration 
 
             #publish estimated local transform and error covariance
             # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
@@ -131,8 +144,8 @@ class ScanMatcher():
             t.header.stamp = rospy.Time.now()
 
             #set parent frame
-            # t.header.frame_id = "map" #temp (set as origin)
-            t.header.frame_id = "odom" #test
+            t.header.frame_id = "map" #(set as origin)
+            # t.header.frame_id = "world" #test
             # t.header.frame_id = "last_frame" #TODO-- set as previously stamped frame in this ICET thread
 
             child_name = 'child_tf_frame'
@@ -147,6 +160,35 @@ class ScanMatcher():
             t.transform.rotation.w = q[3]
             # print(t)
             self.broadcaster.sendTransform(t) #shares the transform but doesn't actually publish? (need to manually add pub node in launch file)
+
+            #TEST
+            # t2 = geometry_msgs.msg.TransformStamped()
+            # t2.header.stamp = rospy.Time.now()
+            # t2.header.frame_id = "child_tf_frame"
+            # t2.child_frame_id = "test"
+            # t2.transform.translation.x = self.X[0]
+            # t2.transform.translation.y = self.X[1]
+            # t2.transform.translation.z = self.X[2]
+            # q = tf_conversions.transformations.quaternion_from_euler(self.X[3], self.X[4], self.X[5])
+            # t2.transform.rotation.x = q[0]
+            # t2.transform.rotation.y = q[1]
+            # t2.transform.rotation.z = q[2]
+            # t2.transform.rotation.w = q[3]
+            # self.broadcaster.sendTransform(t2)
+
+            #ODOMETRY MESSAGES
+            odom = Odometry()
+            odom.header.stamp = rospy.Time.now()
+            odom.header.frame_id = "map"
+            # set the position
+            odom_quat = tf_conversions.transformations.quaternion_from_euler(self.X[3], self.X[4], self.X[5])
+            odom.pose.pose = Pose(Point(self.X[0], self.X[1], self.X[2]), Quaternion(*odom_quat))
+            # set the velocity
+            odom.child_frame_id = "base_link"
+            # odom.twist.twist = Twist(Vector3(vx, vy, 0), Vector3(0, 0, vth))
+            # publish the message
+            self.odom_pub.publish(odom)
+
             #----------------------------------------------------------------------------
 
             #publish non-moving points in new scan

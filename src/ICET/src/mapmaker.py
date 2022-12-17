@@ -25,7 +25,7 @@ class MapMaker():
         self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
         self.mapPub = rospy.Publisher('hd_map', PointCloud2, queue_size = 10)
         self.snailPub = rospy.Publisher('snail_trail', PointCloud2, queue_size = 1)
-        self.downsample_size = 100_000 #10_000 #size of each sub-cloud
+        self.downsample_size = 30_000 #10_000 #size of each sub-cloud
 
         #subscribe to local transformation estimates output by ScanMatcher
         self.Tsub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
@@ -92,7 +92,6 @@ class MapMaker():
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         # #transform new PC so map stays in place ~~~~~~~~~~~~~~~~~~~~~~~
-        # self.global_pose += self.local_estimate[:6] #wrong
         # self.global_pose[3:] += self.local_estimate[3:6] #update angles
         # self.global_pose[:3] += np.array(self.local_estimate[:3]).dot(R_tf(self.global_pose[3:]).numpy()) #update xyz
 
@@ -106,7 +105,6 @@ class MapMaker():
 
         # self.map_xyz = np.append(self.map_xyz, transformed_new_scan, axis = 0)
         # self.mapPub.publish(self.point_cloud(self.map_xyz, 'map'))
-        # self.mapPub.publish(self.point_cloud(self.map_xyz + self.global_pose[:3], 'map'))
         # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 

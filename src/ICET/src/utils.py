@@ -357,7 +357,8 @@ class Ell(Mesh):
         self.axis3 = axis3
         self.nr_of_points = 1 # used by pcaEllipsoid
 
-        if utils.isSequence(res):
+        if utils.isSequence(res): #deprecated in newer Vedo
+        # if utils.is_sequence(res):
             res_t, res_phi = res
         else:
             res_t, res_phi = 2*res, res

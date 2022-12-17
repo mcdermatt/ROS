@@ -9,7 +9,6 @@ from rospy_tutorials.msg import Floats
 import sensor_msgs
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
-# from laser_geometry import LaserProjection
 import tensorflow #as tf #pretty dumb naming convention smh
 
 import sys
@@ -47,8 +46,6 @@ class ScanMatcher():
         Publishes 6dof transformation with associated frame IDs"""
     
     def __init__(self, scan_topic="raw_point_cloud"):
-        # self.scan_sub = rospy.Subscriber(scan_topic, LaserScan, self.on_scan)
-        # self.laser_projector = LaserProjection()
 
         rospy.init_node('scanmatcher', anonymous=True)
 
@@ -160,21 +157,6 @@ class ScanMatcher():
             t.transform.rotation.w = q[3]
             # print(t)
             self.broadcaster.sendTransform(t) #shares the transform but doesn't actually publish? (need to manually add pub node in launch file)
-
-            #TEST
-            # t2 = geometry_msgs.msg.TransformStamped()
-            # t2.header.stamp = rospy.Time.now()
-            # t2.header.frame_id = "child_tf_frame"
-            # t2.child_frame_id = "test"
-            # t2.transform.translation.x = self.X[0]
-            # t2.transform.translation.y = self.X[1]
-            # t2.transform.translation.z = self.X[2]
-            # q = tf_conversions.transformations.quaternion_from_euler(self.X[3], self.X[4], self.X[5])
-            # t2.transform.rotation.x = q[0]
-            # t2.transform.rotation.y = q[1]
-            # t2.transform.rotation.z = q[2]
-            # t2.transform.rotation.w = q[3]
-            # self.broadcaster.sendTransform(t2)
 
             #ODOMETRY MESSAGES
             odom = Odometry()

@@ -84,7 +84,7 @@ def main():
     while not rospy.is_shutdown(): # While there's a roscore
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # # use simulated point clouds I generated for a previous publication 
+        # # use simulated point clouds stored in .csv I generated for a previous publication 
         # # https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
         # runlen = 40 #this many frames in the dataset
         # # idx = int(r*rospy.get_time()%runlen) + 1 #use ROS timestamp as seed for scan idx
@@ -119,13 +119,10 @@ def main():
         # pcNpy = velo1[:,:3]
         # print("Publishing", basedir + '/' + date + '/' + drive + '/' + str(idx))
 
-        #use Ouster sample dataset (from high fidelity 128-channel sensor!) 719 frames total
-        runlen = 715
-        # idx = int(r*rospy.get_time()%700) + 1 #use ROS timestamp as seed for scan idx
-        idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
+        #use Ouster sample dataset (from high fidelity 128-channel sensor), 719 frames total
+        runlen = 615 #715
+        idx = int(r*(rospy.get_time() - start_time)%runlen) + 100 #+ 1
         fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
-        # idx = int(r*rospy.get_time()%140) + 1 #only play every 5th frame
-        # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(5*idx)
         print("Publishing", fn1)
         df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
         pcNpy = df1.values[:,8:11]*0.001 #1st sensor return (what we want)

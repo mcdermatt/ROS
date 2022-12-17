@@ -12,10 +12,8 @@ class ICET():
 
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, 
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
-		DNN_filter = False, cheat = []):
+		DNN_filter = False):
 
-		# self.run_profile = True
-		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
 		self.min_cell_distance = 2 #begin closest spherical voxel here
@@ -24,50 +22,33 @@ class ICET():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.3 #0.5 #controls alpha values when displaying ellipses
-		self.cheat = cheat #overide for using ICET to generate training data for DNN
+		self.alpha = 0.3 #controls alpha values when displaying ellipses
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 4 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 1.0 #0.125
+		self.RM_thresh = 0.3 #0.125
 
 		before = time.time()
 
-		#load dnn model
+		#load DNN
 		if self.DNN_filter:
-			self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
-			# self.model = tf.keras.models.load_model("perspective_shift/ForestNet.kmod")
-			# self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod") #used for graphs in v1 arXiv submission
-			# self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
-			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #50 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
-			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
-
-			if self.run_profile:
-				print("\n loading model took", time.time() - before, "\n total: ",  time.time() - self.st)
-				before = time.time()
+			self.model = tf.keras.models.load_model("trained_networks/KITTINet100.kmod")
 
 		#convert cloud1 to tesnsor
-		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
-		# self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
-		#debug(needed for efficient gaussian fitting later on...??)
 		self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
 		self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
 
 		if self.draw == True:
 			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
 			self.disp = []
-			#copy-paste camera settings here using Shift+C on vedo terminal window-----------
+			#set vedo camera
 			self.plt.camera.SetPosition( [-36.28, 13.51, 20.48] )
 			self.plt.camera.SetFocalPoint( [11.18, -2.13, 0.8092] )
 			self.plt.camera.SetViewUp( [0.3443, -0.124, 0.9305] )
 			self.plt.camera.SetDistance( 53.70 )
 			self.plt.camera.SetClippingRange( [0.18, 181.9] )
-			#--------------------------------------------------------------------------------
-
+			
 		#convert cloud to spherical coordinates
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
 		self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -85,49 +66,20 @@ class ICET():
 
 		self.cloud1_static = None #placeholder for returning inlier points after moving point exclusion routine
 
-		if self.run_profile:
-			print("\n converting to spherical took", time.time() - before, "\n total: ",  time.time() - self.st)
-			before = time.time()
-
-		# #-----------------------------------------------------------
-		# #debug - draw points within a single occupied cell  
-		# # working on simple cluster but not on KITTI data
-		
-		# n = 56 #nth cell with sufficient number of points
-		# idx = enough1[n]
-		# # print(idx)
-		# # print("npts1", npts1[idx])
-		# # print("inside1[idx]", inside1[idx])
-		# temp = tf.gather(self.cloud1_tensor, inside1[idx]).numpy()
-		# # print(temp)
-		# self.disp.append(Points(temp, c = 'green', r = 10))
-		# # self.draw_cell(tf.gather(o, idx))
-		# # print(o)
-		# # print(tf.gather(o, idx)[None, None])
-		# self.draw_cell(tf.gather(o, idx)[None])
-
-		# # self.draw_ell(mu1, sigma1)
-		# # print(tf.shape(mu1))
-		# #------------------------------------------------------------
-
 		if group == 1:
-			#perform algorith old way using the radial voxel strategy
+			#perform algorith using naive radial voxels
 			self.main_1(niter = self.niter, x0 = x0)
 
 		if group == 2:
-			#perform algorithm new way with radial clustering (no bins)
+			#perform algorithm with adaptive radial clustering
 			self.main_2(niter = self.niter, x0 = x0, remove_moving = RM)
-
-			#debug
-			# print("cloud 1 new", self.cloud1_static)
-			# self.disp.append(Points(self.cloud1_static, c = 'green', r = 5))
 
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
 			self.plt.show(self.disp, "Spherical ICET", resetcam = False)
 
 	def main_2(self, niter, x0, remove_moving = True):
-		""" Main loop using new radial clustering strategy """
+		""" Main loop using radial clustering strategy """
 
 		before = time.time()
 
@@ -135,7 +87,7 @@ class ICET():
 		self.before_correction = x0
 
 		# get boundaries containing useful clusters of points from first scan
-				#bin points by spike
+		#bin points by spike
 		thetamin = -np.pi
 		thetamax = np.pi
 		phimin =  3*np.pi/8
@@ -163,21 +115,10 @@ class ICET():
 
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
 		self.rads = rads #temp for debug
-		# bounds = get_cluster(rads, mnp = self.min_num_pts) #old (slow)
-		bounds = get_cluster_fast(rads, mnp = self.min_num_pts) #new (20x faster)
-
-		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
-		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-		# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-		# #-----------------------------------------------------------------------------------
+		bounds = get_cluster_fast(rads, mnp = self.min_num_pts)
 
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
-		# print(npts1)
-
-		if self.run_profile:
-			print("\n getting spherical grid", time.time() - before, "\n total: ",  time.time() - self.st)
-			before = time.time()
 
 		self.inside1 = inside1
 		self.npts1 = npts1
@@ -187,10 +128,6 @@ class ICET():
 		#fit gaussian
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
 
-		if self.run_profile:
-			print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
-			before = time.time()
-
 		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
 		mu1_enough = tf.gather(mu1, enough1)
 		sigma1_enough = tf.gather(sigma1, enough1)
@@ -198,37 +135,19 @@ class ICET():
 		#standard U and L method does not work with new grouping strategy
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		if self.run_profile:
-			print("\n got U and L cluster", time.time() - before, "\n total: ",  time.time() - self.st)
-			before = time.time()
-
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
 			# self.draw_car()
-			# draw identified points inside useful clusters
-			# for n in range(tf.shape(inside1.to_tensor())[0]):
-			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
-			# 	self.disp.append(Points(temp, c = 'green', r = 5))
 
 		for i in range(niter):
-			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			#Option to read in ground truth positions so we can use ICET to generate training data for DNN
-			if tf.shape(self.cheat)[0].numpy() > 0:
-				self.X = self.cheat
-				print("using state estimate from OXTS")
-			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
 			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this in 3D-ICET paper
 			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
-
-			if self.run_profile:
-				print("\n ~~~~~~~~~~~~~~ \n transforming scan2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
-				before = time.time()
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -237,10 +156,6 @@ class ICET():
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
 			#fit gaussians distributions to each of these groups of points 		
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
-
-			if self.run_profile:
-				print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
-				before = time.time()
 
 			enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
 			mu2_enough = tf.gather(mu2, enough2)
@@ -252,7 +167,6 @@ class ICET():
 			if remove_moving:  
 				if i >= self.start_RM_iter: #TODO: tune this to optimal value
 					print("\n ---checking for moving objects---")
-					#FIND CELLS THAT INTRODUCE THE MOST ERROR
 					
 					#test - re-calculting this here
 					y0_i_full = tf.gather(mu1, corr_full)
@@ -361,8 +275,6 @@ class ICET():
 					self.U_i = U_i
 					self.L_i = L_i
 
-					# print("\n ~~~~~~~~~~~~~~ \n removed moving", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
-					before = time.time()
 			#----------------------------------------------
 
 			#----------------------------------------------
@@ -479,7 +391,6 @@ class ICET():
 			y0_i = tf.gather(mu1, corr)
 			sigma0_i = tf.gather(sigma1, corr)
 			npts0_i = tf.gather(npts1, corr)
-			# print(sigma1)
 
 			y_i = tf.gather(mu2, corr)
 			sigma_i = tf.gather(sigma2, corr)
@@ -494,18 +405,12 @@ class ICET():
 			U_i = tf.gather(U, ans)
 			L_i = tf.gather(L, ans)
 
-			#----------------------------------------------
 			#hold on to these values inside ICET object so we can use these to compare results with DNN
 			self.corr = corr
 			self.residuals = y_i - y0_i
 			self.U = U_i
 			self.L = L_i
-			# self.corn = tf.gather(corn, ans) #test
 			self.corn = tf.gather(corn, corr)
-			# self.U = U
-			# self.L = L
-			#-----------------------------------------------
-
 
 			#get matrix containing partial derivatives for each voxel mean
 			H = jacobian_tf(tf.transpose(y_i), self.X[3:]) # shape = [num of corr * 3, 6]
@@ -539,44 +444,17 @@ class ICET():
 			dz = z - z0
 			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
 
-			# #DEBUG - replace distribution matching step with output from DNN ~~~~~~~~~
-			# if i >= self.start_filter_iter:
-			# 	#directly using output from dnn -----------
-			# 	#converges with no DNN voxel rejection, but still need to remove cells where soln disagrees with ICET
-			# 	dz = dnn_compact 
-			# 	# dz = tf.matmul(U_i_dnn, dnnsoln[:,:,None])  #test - rotate along principal axis of ICET distributions but do not remove extended axis
-
-			# 	#get list of all possible indices
-			# 	all_idx = tf.cast(tf.linspace(0,tf.shape(dz)[0].numpy()-1,tf.shape(dz)[0].numpy()), tf.int64)[None,:]
-
-			# 	#removing rejected dnn solnss
-			# 	##with RM turned on
-			# 	##combine bad idx's from dnn filter and moving object filter
-			# 	rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
-			# 	good_idx = tf.sets.difference(all_idx, rmidx).values 
-			# 	##if RM turned off
-			# 	# good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values 
-				
-			# 	dz = tf.gather(dz, good_idx)
-			# 	# print("new dz", dz[:15,:,0])
-			# # # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
 			dx = tf.math.reduce_sum(dx, axis = 0)
 			self.X += dx
 
-			# print("\n estimated solution vector X: \n", self.X)
+			print("\n estimated solution vector X: \n", self.X)
 
 			#get output covariance matrix
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
-			if self.run_profile:
-				print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
-				before = time.time()
-
-		# print("pred_stds: \n", self.pred_stds)
-		# print(" L2: \n", L2)		
+		print("pred_stds: \n", self.pred_stds)
 
 		#draw PC2
 		if self.draw == True:
@@ -587,42 +465,18 @@ class ICET():
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 
-
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
-			# draw identified points from scan 2 inside useful clusters
-			# for n in range(tf.shape(inside2.to_tensor())[0]):
-			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
-			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			# self.draw_correspondences(mu1, mu2, corr_full) #corr displays just used correspondences
-
-			#FOR DEBUG: we should be looking at U_i, L_i anyways...
-			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
+			# self.draw_correspondences(mu1, mu2, corr_full) #displays used correspondences
 			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
-
-		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
-		# 	# #	doing this to minmize negative effects of perspective shift
-		# 	# cloud1_static_tensor = tf.cast(tf.convert_to_tensor(self.cloud1_static), tf.float32)
-		# 	# cloud1_static_tensor_spherical = tf.cast(self.c2s(cloud1_static_tensor), tf.float32)
-
-		# 	# not_too_close1 = tf.where(cloud1_static_tensor_spherical[:,0] > 6)[:,0]
-		# 	# self.cloud1_static = tf.gather(cloud1_static_tensor, not_too_close1).numpy()
-		# 	# #-----------------------------------------------------------------------------------
 
 		if remove_moving == True:
 			#hold on to points from scan2 that do not contain moving objects
-			# print("inside2", inside2)
 			idx_of_points_inside_good_clusters = tf.gather(inside2, corr)
 			self.cloud2_static = tf.gather(self.cloud2_tensor_OG, idx_of_points_inside_good_clusters).values.numpy()
-			# c = Points(self.cloud2_static, c = (0,1,1), r = 5, alpha = 1.)
-			# self.disp.append(c)
 		else:
 			self.cloud2_static = self.cloud2_tensor_OG.numpy()
-
-		# for i in (self.cloud2_static):		#inefficient
-		# 	self.draw_cloud(i.numpy(), pc = 3)
 
 	def main_1(self, niter, x0):
 		""" main loop using naive radial voxels (no dynamic radial growth applied)"""
@@ -770,31 +624,6 @@ class ICET():
 		# print("tf.gather(o,corr) \n",tf.gather(o,corr))
 
 
-	# def compact_loss(self, y_true_extra, y_pred):
-	# 	"""Neet to define for use with """
-
-	# 	#Here, we take in LUT as part of y_true that we disect inside this loss function
-	# 	y_true = y_true_extra[:,:,0] #ahahahahahah messed up my indexing here!
-	# 	ULUT = y_true_extra[:,:,1:]
-
-	# 	compact_dnn = tf.matmul(ULUT, y_pred[:,:,None])
-	# 	compact_true = tf.matmul(ULUT, y_true[:,:,None])
-	# 	loss_compact = (tf.math.reduce_mean(tf.math.abs(compact_dnn - compact_true), axis = 0)**2 )[:,0]    
-	# 	loss_compact = tf.math.sqrt(loss_compact)
-
-	# 	print(compact_dnn)
-	# 	print(y_true[:,:,None])
-
-	# 	#take average of compact loss and total loss to try and balance out training
-	# 	loss_total = (tf.math.reduce_mean(tf.math.abs(y_pred[:,:,None] - y_true[:,:,None]), axis = 0)**2 )[:,0]
-	# 	loss_total = tf.math.sqrt(loss_total)
-
-	# 	loss = (loss_compact + loss_total) / 2
-	# 	#     loss = loss_compact
-	# 	#     loss = loss_compact*0.25 + loss_total*(0.75)    
-	# 	return loss
-
-
 	def get_points_in_cluster(self, cloud, occupied_spikes, bounds):
 		""" returns ragged tensor containing the indices of points in <cloud> in each cluster 
 		
@@ -802,13 +631,9 @@ class ICET():
 			occupied_spikes = tensor containing idx of spikes corresponding to bounds
 			bounds = tensor containing min and max radius for each occupied spike
 
-			#TODO: this is SUPER inefficient rn- 
-
 		"""
-		st = time.time()
-
 		thetamin = -np.pi
-		thetamax = np.pi #-  2*np.pi/self.fid_theta
+		thetamax = np.pi
 		phimin =  3*np.pi/8
 		phimax = 7*np.pi/8
 
@@ -820,21 +645,14 @@ class ICET():
 
 		spike_idx = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi, tf.int32)
 
-		#TODO- bottleneck here, try using equation to ID spikes each point, then consider radial bins...
-
 		#get idx of spike for each applicable point
 		cond1 = spike_idx == occupied_spikes[:,None] #match spike IDs
 		cond2 = cloud[:,0] < tf.cast(bounds[:,1][:,None], tf.float32) #closer than max bound
 		cond3 = cloud[:,0] > tf.cast(bounds[:,0][:,None], tf.float32) #further than min bound
-		# cond1 = tf.math.equal(spike_idx, occupied_spikes[:,None]) #match spike IDs
-		# cond2 = tf.math.less(cloud[:,0], bounds[:,1][:,None]) #closer than max bound
-		# cond3 = tf.math.greater(cloud[:,0], bounds[:,0][:,None]) #further than min bound
 
 		inside1 = tf.where(tf.math.reduce_all(tf.Variable([cond1, cond2, cond3]), axis = 0))
 		numPtsPerCluster = tf.math.bincount(tf.cast(inside1[:,0], tf.int32))
 		inside1 = tf.RaggedTensor.from_value_rowids(inside1[:,1], inside1[:,0])
-
-		# print("\n took ", time.time() -st , "seconds to get points in cluster" )
 
 		return(inside1, numPtsPerCluster)
 
@@ -844,9 +662,6 @@ class ICET():
 
 		eigenval, eigenvec = tf.linalg.eig(sigma1)
 		U = tf.math.real(eigenvec) #was this
-		# U = tf.transpose(tf.math.real(eigenvec), [0, 2, 1]) #wrong! (but looks right if we are drawing arrows incorrectly)
-
-		# print("eigenval", tf.math.real(eigenval))
 
 		#need to create [N,3,3] diagonal matrices for axislens
 		zeros = tf.zeros([tf.shape(tf.math.real(eigenval))[0]])
@@ -860,19 +675,16 @@ class ICET():
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
 		# axislen_actual = 2*tf.math.sqrt(axislen) #theoretically correct
-		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
+		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works best with one edge extended detection criteria)
 		# axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
-		# print(axislen_actual)
+
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
-		# print("rotated_actual", rotated_actual)
 	
 		#get points at the ends of each distribution ellipse
-		# print("mu1", mu1)
 		mu_repeated = tf.tile(mu1, [3,1])
 		mu_repeated = tf.reshape(tf.transpose(mu_repeated), [3,3,-1])
 		mu_repeated = tf.transpose(mu_repeated, [2,1,0])
 		mu_repeated = tf.reshape(mu_repeated, [-1,3, 3])
-		# print("mu_repeated", mu_repeated)
 
 		P1 = mu_repeated + rotated_actual
 		P1 = tf.reshape(P1, [-1, 3])
@@ -882,33 +694,27 @@ class ICET():
 		#Assumes mu is always going to be inside the corresponding cell (should almost always be the case, if not, its going to fail anyways)
 		insideP_ideal, nptsP_ideal = self.get_points_in_cluster(self.c2s(tf.reshape(mu_repeated, [-1,3])), occupied_spikes, bounds)
 		insideP_ideal = insideP_ideal.to_tensor()
-		# print("insideP_ideal", insideP_ideal)
-
 
 		#find which points in P are actually inside which cell in <cells>
 		insideP1_actual, nptsP1_actual = self.get_points_in_cluster(self.c2s(P1), occupied_spikes, bounds)
-		# print(insideP1_actual)
 		insideP1_actual = insideP1_actual.to_tensor(shape = tf.shape(insideP_ideal)) #force to be same size as insideP_ideal
-		# print("insideP1_actual", insideP1_actual)
 		insideP2_actual, nptsP2_actual = self.get_points_in_cluster(self.c2s(P2), occupied_spikes, bounds)
 		insideP2_actual = insideP2_actual.to_tensor(shape = tf.shape(insideP_ideal))
 
 		#compare the points inside each cell to how many there are supposed to be
 		#	(any mismatch signifies an overly extended direction)
-		bofa1 = tf.sets.intersection(insideP_ideal, insideP1_actual).values
-		# print("\n bofa1", bofa1)
-		bofa2 = tf.sets.intersection(insideP_ideal, insideP2_actual).values
-		# print("\n bofa2", bofa2)
+		outside1 = tf.sets.intersection(insideP_ideal, insideP1_actual).values
+		outside2 = tf.sets.intersection(insideP_ideal, insideP2_actual).values
 
 		#combine both the positive and negative axis directions
-		# deez = tf.cast(tf.sets.intersection(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32) # only need one edge outside cell (was this)
-		deez = tf.cast(tf.sets.union(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32) #both edeges need to be outside cell to be ambigous
-		# print("unambiguous indices", deez)
+		# outside_both = tf.cast(tf.sets.intersection(outside1[None, :], outside2[None, :]).values[:,None], tf.int32) # only need one edge outside cell (was this)
+		outside_both = tf.cast(tf.sets.union(outside1[None, :], outside2[None, :]).values[:,None], tf.int32) #both edeges need to be outside cell to be ambigous
+		# print("unambiguous indices", outside_both)
 
-		data = tf.ones((tf.shape(deez)[0],3))
+		data = tf.ones((tf.shape(outside_both)[0],3))
 		I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
 
-		mask = tf.scatter_nd(indices = deez, updates = data, shape = tf.shape(I))
+		mask = tf.scatter_nd(indices = outside_both, updates = data, shape = tf.shape(I))
 
 		L = mask * I
 		L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
@@ -985,19 +791,19 @@ class ICET():
 
 			#compare the points inside each cell to how many there are supposed to be
 			#	(any mismatch signifies an overly extended direction)
-			bofa1 = tf.sets.intersection(insideP_ideal, insideP1_actual).values
-			# print("\n bofa1", bofa1)
-			bofa2 = tf.sets.intersection(insideP_ideal, insideP2_actual).values
-			# print("\n bofa2", bofa2)
+			outside1 = tf.sets.intersection(insideP_ideal, insideP1_actual).values
+			# print("\n outside1", outside1)
+			outside2 = tf.sets.intersection(insideP_ideal, insideP2_actual).values
+			# print("\n outside2", outside2)
 
 			#combine both the positive and negative axis directions
-			deez = tf.cast(tf.sets.intersection(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32)
-			# print("unambiguous indices", deez)
+			outside_both = tf.cast(tf.sets.intersection(outside1[None, :], outside2[None, :]).values[:,None], tf.int32)
+			# print("unambiguous indices", outside_both)
 
-			data = tf.ones((tf.shape(deez)[0],3))
+			data = tf.ones((tf.shape(outside_both)[0],3))
 			I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
 
-			mask = tf.scatter_nd(indices = deez, updates = data, shape = tf.shape(I))
+			mask = tf.scatter_nd(indices = outside_both, updates = data, shape = tf.shape(I))
 
 			L = mask * I
 			L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
@@ -1111,26 +917,18 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e7 #1e4 #1e7 #TODO-> experiment with this to get a good value
+		cutoff = 1e7 # best value for KITTI dataset
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)
 		eigenval = tf.math.real(eigenval)
 		eigenvec = tf.math.real(eigenvec)
 
-		# print("\n eigenvals \n", eigenval)
-		# print("\n eigenvec \n", eigenvec)
-		# print("\n eigenvec.T \n", tf.transpose(eigenvec))
-
 		#sort eigenvals by size -default sorts small to big
 		# small2big = tf.sort(eigenval)
-		# print("\n sorted \n", small2big)
 
 		#test if condition number is bigger than cutoff
 		condition = eigenval[-1] / eigenval[0]
-		# print("\n condition \n", tf.experimental.numpy.log10(abs(condition)))
-		# print("\n condition \n", condition.numpy())
-
 
 		everyaxis = tf.cast(tf.linspace(0,5,6), dtype=tf.int32)
 		remainingaxis = everyaxis
@@ -1139,7 +937,6 @@ class ICET():
 		while abs(condition) > cutoff:
 
 			condition = eigenval[-1] / tf.gather(eigenval, i)
-			# print("condition", tf.experimental.numpy.log10(abs(condition)).numpy())
 
 			if abs(condition) > cutoff:
 				i.assign_add(tf.Variable([1],dtype = tf.int32))
@@ -1160,7 +957,6 @@ class ICET():
 		#TODO: scale eigenvectors associated with rotational components of solution
 
 		lam = tf.eye(6)*eigenval
-		# print("\n lam \n", lam)
 
 		return(L2, lam, U2)
 
@@ -1246,13 +1042,6 @@ class ICET():
 		p7 = tf.gather(g, n + (self.fid_theta*self.fid_phi) + 1)
 		p8 = tf.gather(g, n + self.fid_phi + (self.fid_theta*self.fid_phi) +1 - fix)
 
-		#NEW test 3/13 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		# #for bottom ring in each shell, expand the radius of each cell
-		# temp = p1[:,0] + tf.cast( (self.fid_phi-1 - cells%(self.fid_phi-1))//(self.fid_phi-1), tf.float32)
-		# p1 = tf.concat((temp[:,None], p1[:,1:]), axis = 1)
-
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 		out = tf.transpose(tf.Variable([p1, p2, p3, p4, p5, p6, p7, p8]), [1, 0, 2])
 
 		return(out)
@@ -1262,12 +1051,7 @@ class ICET():
 		""" fits 3D gaussian distribution to each elelment of 
 			rag, which cointains indices of points in cloud """
 
-		st = time.time()
-
 		coords = tf.gather(cloud, rag)
-		#for debug ------
-		# self.disp.append(Points( mu.numpy(), c = 'b', r = 20 ))
-		#----------------
 
 		xpos = tf.gather(cloud[:,0], rag)
 		ypos = tf.gather(cloud[:,1], rag)
@@ -1311,9 +1095,6 @@ class ICET():
 							 xy, yy, yz,
 							 xz, yz, zz]) 
 		sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
-		# print("sigma", sigma)
-
-		# print("took", time.time()-st, "s to fit_gaussian")
 
 		return(mu[:,0,:], sigma)
 		# #~~~~~~~~~~
@@ -1321,8 +1102,6 @@ class ICET():
 
 	def get_points_inside(self, cloud, cells):
 		""" returns ragged tensor containing the indices of points in <cloud> inside each cell in <cells>"""
-		st = time.time()
-		# print("specified cells:", cells)
 
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
@@ -1366,29 +1145,13 @@ class ICET():
 		#cell index for every point in cloud
 		cell_idx = tf.cast( bins_theta*(self.fid_phi-1) + bins_phi + bins_r*self.fid_theta*(self.fid_phi-1), tf.int32) #works for regular cells
 
-		# print("cell index for each point", cell_idx)
-
 		pts_in_c = tf.where(cell_idx == cells)
-		# print("cell ID for each point", pts_in_c[:,0])
-
-		#TODO: check for skipped indices here -> it may be producing a bug
-		# print(tf.unique(pts_in_c[:,0]))
 		
 		numPtsPerCell = tf.math.bincount(tf.cast(pts_in_c[:,0], tf.int32))
-		# print("numPtsPerCell", numPtsPerCell)
-		#test
-		# _, num_pts = tf.unique(pts_in_c[:,0])
-		# print("num_pts", num_pts)
 
 		pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0]) 
 		# pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0], nrows = tf.shape(cells)[0].numpy())
-		# print(pts_in_c.get_shape())
-		# print(tf.shape(cells))
-		# print("pts_in_c", pts_in_c)
-
-		# print("index of points in specified cell", pts_in_c)
-
-		# print("took", time.time()-st, "s to find pts in cells")
+	
 		return(pts_in_c, numPtsPerCell)
 
 
@@ -1697,18 +1460,5 @@ class ICET():
 		# car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85) #old vedo
 		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
 		car.pos(1.4,1,-1.72)
-		# car.rotate(-45, axis = (0,0,1)) #for curve scene
 		car.addShadow(plane = 'z', point = -1.85, c=(0.5, 0.5, 0.5))
-		# car.orientation(vector(0,np.pi/2,0)) 
 		self.disp.append(car)
-		#draw sphere at location of sensor
-		# self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.9,0.5], r = 10))
-
-		# fname = "C:/Users/Derm/lidar.stl"
-		# velodyne = Mesh(fname).c("gray").rotate(90, axis = (1,0,0)).scale(0.001)
-		# velodyne.rotate(180, axis = (0,1,0))
-		# velodyne.pos(0,0.1,0.01)
-		# velodyne.addShadow(plane = 'z', point = -0.08, c = (0.2, 0.2, 0.2))
-		# self.disp.append(velodyne)
-
-		# print(car.rot)

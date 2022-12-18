@@ -9,6 +9,7 @@ from std_msgs.msg import String, Bool # A simple message type, String that just 
 from geometry_msgs.msg import Twist
 import numpy as np
 from turtlesim.msg import Pose
+from funtimes.srv import test_service
 
 class TurtleBot:
 
@@ -25,13 +26,15 @@ class TurtleBot:
         # when a message of type Pose is received.
         self.pose_subscriber = rospy.Subscriber('/turtle1/pose',
                                                 Pose, self.update_pose)
-
         #subscriber for goal pose
         self.goal_subscriber = rospy.Subscriber('goal_pose', Pose, self.move2goal)
 
         #Publisher will announce when robot is at goal, indicating ready for next instruction
         self.ready_publisher = rospy.Publisher('ready', Bool, queue_size = 1)
         self.is_ready = False #init robot as not being at goal pos
+
+
+        self.serv = rospy.Service('go_to_goal', test_service, self.move2goal)
 
         self.pose = Pose()
         self.rate = rospy.Rate(10)
@@ -114,8 +117,11 @@ class TurtleBot:
         rospy.spin()
 
 if __name__ == '__main__':
-    try:
-        x = TurtleBot()
-        x.move2goal()
-    except rospy.ROSInterruptException:
-        pass
+
+    x = TurtleBot()
+
+    # try:
+    #     x = TurtleBot()
+    #     # x.move2goal()
+    # except rospy.ROSInterruptException:
+    #     pass

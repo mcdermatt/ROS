@@ -16,14 +16,18 @@ import tf
 import tf2_ros
 import tf2_geometry_msgs
 
+#TODO:
+#   start out with "simple" unweighted graph to describe connections between woven 
+
+#   Make seprate node to draw the graphical output of this 
+
 class GraphMaker():
     """ Attemps to optimize many local transformations coming from simulatneous ICET scan registrations
 
-        Takes in tf2 outputs from each ICET thread
+        Takes in /relative_transform from each ICET thread
 
-        Publishes optimized overall trajectory
-        Publishes SMOOTHED trajectory from subsequent measurements
-    
+        Publishes optimized overall trajectory    
+
     """
     
     def __init__(self):
@@ -31,17 +35,18 @@ class GraphMaker():
         rospy.init_node('graphmaker', anonymous=False)
 
         #Need this to know when LIDAR drive trajectory restarts
-        # self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
+        self.etc_sub = rospy.Subscriber('lidar_info', Num, self.get_info)
 
-        #using numpy + raw transfrom outputs (more difficult) ----------------
-        #subscribe to local transformation estimates output by ScanMatcher
-        # self.TSub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
-        # self.SigmaSub = rospy.Subscriber('relative_covariance', Floats, self.on_cov) 
-        #publish overall trajectory
+        # using numpy + raw transfrom outputs (more difficult) ----------------
+        # subscribe to local transformation estimates output by ScanMatcher
+        self.TSub = rospy.Subscriber('relative_transform', Floats, self.on_transform) 
+        self.SigmaSub = rospy.Subscriber('relative_covariance', Floats, self.on_cov) 
+        # publish incidence matrix of graph
+        self.incidence_matrix_Pub = rospy.Publisher('incidence_matrix', numpy_msg(Floats), queue_size = 1)
         # self.GraphPub = rospy.Publisher('graph', numpy_msg(Floats), queue_size = 1)
-        #---------------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
-        r = 10
+        r = 100
         self.rate = rospy.Rate(r)
 
         self.restart()
@@ -49,59 +54,88 @@ class GraphMaker():
     def restart(self):
         """restart graph at the beginning of a new trajectory"""
 
-        #init transformation graph
-        # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
-        self.graph = np.zeros([1, 8]) #TODO: figure out a better way to do this
+        #init incidence matrix
+        # self.incidence_matrix = None #np.zeros([1, 1])
+        self.incidence_matrix = np.zeros([2, 2])
 
     def get_info(self, data):
         """ Gets Lidar info from custom Num msg """
 
         self.scan_data = data
-        print("frame idx:", data.frame)
+        # print("frame idx:", data.frame)
 
         if self.scan_data.restart == True:
-            np.save("/home/derm/ROS/src/ICET/src/graph", self.graph) #save to disk for debug 
+            np.savetxt("/home/derm/ROS/src/ICET/src/incidence_matrix.txt", self.incidence_matrix) #save to disk for debug 
             self.restart()
 
     def on_transform(self, local_estimate):
         """called when ScanMatcher node publishes local transformation estimate"""
 
-        self.local_estimate = np.array(local_estimate.data)[None, :]
+        #local transforms come in as:
+        # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
+        self.local_estimate = np.array(local_estimate.data)
         print("\n self.local_estimate \n", self.local_estimate)
 
         #UPDATE GRAPH ------------------------
-        self.graph = np.append(self.graph, self.local_estimate, axis = 0)
-        # print("\n graph:",self.graph)
+        #[Nodes, Edges] 
+        #   Nodes are the frame indicecs (LIDAR scans 1, 2, 3...) 
+        #   Edges are the local transforms connecting each Node
 
+        ## DEBUG: make sure our incidence matrix indices line up with scan indices, even after looping through dataset 
+        # if self.incidence_matrix is None:
+        #     #set to size of current graph - 1
+        #     self.incidence_matrix = np.zeros([int(self.local_estimate[6])-1, int(self.local_estimate[6])-1])
+
+        #if graph isn't big enough to accomodate new scan, extend graph
+        # if np.shape(self.incidence_matrix)[0] < self.local_estimate[7]:
+        #     self.incidence_matrix = np.pad(self.incidence_matrix, [(0, int(self.local_estimate[7] - np.shape(self.incidence_matrix)[0]) + 2),(0,0)]) #add nodes
+
+        while np.shape(self.incidence_matrix)[0] <= self.local_estimate[7]:
+            self.incidence_matrix = np.pad(self.incidence_matrix, [(0, 1),(0,0)]) #add nodes
+
+        #add edges
+        self.incidence_matrix = np.pad(self.incidence_matrix, [(0,0),(0,1)]) 
+        self.incidence_matrix[int(self.local_estimate[6]), -1] = 1 #set indices for associated scans to 1
+        self.incidence_matrix[int(self.local_estimate[7]), -1] = 1 
+
+        print("\n Incidence Matrix:", np.shape(self.incidence_matrix))
+        # print("\n Incidence Matrix:", self.incidence_matrix)
         #-------------------------------------
 
-
-        #publish updated graph
+        # publish Incidence Matrix
+        self.incidence_matrix_Pub.publish(self.incidence_matrix.astype(np.float32))
 
     def on_cov(self, local_estimate):
         """ called when covaraince is eastimated for each local transformation """
 
         pass
 
-
 if __name__ == '__main__':
-
-    rospy.init_node('graphmaker')
-
-    source_frame = 'map'
-    target_frame = 'child_tf_frame'
-
-    #use tf2 frames output by <scan_matcher> (more direct??)
-    tfbuffer = tf2_ros.Buffer()
-    listener = tf2_ros.TransformListener(tfbuffer)
-
-    rate = rospy.Rate(1)
+    g = GraphMaker()
 
     while not rospy.is_shutdown():
 
-        rate.sleep()
-        try:
-            trans = tfbuffer.lookup_transform(target_frame, source_frame, rospy.Time())
-            print("\n trans: \n", trans)
-        except:
-            print("not ready")
+        rospy.spin()
+
+#old - using TF tree structure -- not sure this will work for woven transforms
+# if __name__ == '__main__':
+
+#     rospy.init_node('graphmaker')
+
+#     source_frame = 'map'
+#     target_frame = 'child_tf_frame'
+
+#     #use tf2 frames output by <scan_matcher> (more direct??)
+#     tfbuffer = tf2_ros.Buffer()
+#     listener = tf2_ros.TransformListener(tfbuffer)
+
+#     rate = rospy.Rate(1)
+
+#     while not rospy.is_shutdown():
+
+#         rate.sleep()
+#         try:
+#             trans = tfbuffer.lookup_transform(target_frame, source_frame, rospy.Time())
+#             print("\n trans: \n", trans)
+#         except:
+#             print("not ready")

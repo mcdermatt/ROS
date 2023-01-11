@@ -8,7 +8,7 @@
 
 #include <string>
 #include <vector>
-#include <map>
+#include <memory>
 
 #include <ros/types.h>
 #include <ros/serialization.h>
@@ -50,10 +50,10 @@ struct Num_
    typedef int32_t _frame_type;
   _frame_type frame;
 
-   typedef std::basic_string<char, std::char_traits<char>, typename ContainerAllocator::template rebind<char>::other >  _status_type;
+   typedef std::basic_string<char, std::char_traits<char>, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<char>> _status_type;
   _status_type status;
 
-   typedef std::vector<float, typename ContainerAllocator::template rebind<float>::other >  _true_transform_type;
+   typedef std::vector<float, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<float>> _true_transform_type;
   _true_transform_type true_transform;
 
 
@@ -223,7 +223,7 @@ struct Printer< ::ICET::Num_<ContainerAllocator> >
     s << indent << "frame: ";
     Printer<int32_t>::stream(s, indent + "  ", v.frame);
     s << indent << "status: ";
-    Printer<std::basic_string<char, std::char_traits<char>, typename ContainerAllocator::template rebind<char>::other > >::stream(s, indent + "  ", v.status);
+    Printer<std::basic_string<char, std::char_traits<char>, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<char>>>::stream(s, indent + "  ", v.status);
     s << indent << "true_transform[]" << std::endl;
     for (size_t i = 0; i < v.true_transform.size(); ++i)
     {

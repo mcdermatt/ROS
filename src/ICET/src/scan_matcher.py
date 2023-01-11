@@ -34,9 +34,6 @@ if gpus:
 
 from ICET_spherical import ICET #my point cloud registration algorithm
 
-#TODO: don't output anything if LIDAR just reset
-#      clear queue???
-
 class ScanMatcher():
     """scanmatcher node subscribes to /point_cloud topic and attemts to 
         register sequential point clouds. 
@@ -69,8 +66,8 @@ class ScanMatcher():
         r = 100 #not going to be able to actually run this fast, but no harm in setting at 10 Hz
         self.rate = rospy.Rate(r)
 
-        self.remove_moving_objects = False
-        # self.remove_moving_objects = True
+        # self.remove_moving_objects = False
+        self.remove_moving_objects = True
 
 
         self.reset()

@@ -149,8 +149,8 @@ def main():
         # pcNpy = pcls + 0.02*np.random.randn(len(pcls),3)
 
         #LeddarTech PixSet LIDAR dataset
-        # runlen = 273
-        runlen = 50
+        runlen = 273
+        # runlen = 50
         prefix = "/home/derm/Downloads/20200721_144638_part36_1956_2229/ouster64_bfc_xyzit/" #very good quality
         idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
         # fn1 = prefix + "00000210.pkl"

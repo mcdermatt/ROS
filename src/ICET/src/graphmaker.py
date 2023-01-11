@@ -43,7 +43,8 @@ class GraphMaker():
         self.SigmaSub = rospy.Subscriber('relative_covariance', Floats, self.on_cov) 
         # publish incidence matrix of graph
         self.incidence_matrix_Pub = rospy.Publisher('incidence_matrix', numpy_msg(Floats), queue_size = 1)
-        # self.GraphPub = rospy.Publisher('graph', numpy_msg(Floats), queue_size = 1)
+        #test
+        # self.incidence_matrix_Pub = rospy.Publisher('incidence_matrix', Floats, queue_size = 1)
         # ---------------------------------------------------------------------
 
         r = 100
@@ -65,7 +66,7 @@ class GraphMaker():
         # print("frame idx:", data.frame)
 
         if self.scan_data.restart == True:
-            np.savetxt("/home/derm/ROS/src/ICET/src/incidence_matrix.txt", self.incidence_matrix) #save to disk for debug 
+            # np.savetxt("/home/derm/ROS/src/ICET/src/incidence_matrix.txt", self.incidence_matrix) #save to disk for debug 
             self.restart()
 
     def on_transform(self, local_estimate):
@@ -103,7 +104,11 @@ class GraphMaker():
         #-------------------------------------
 
         # publish Incidence Matrix
-        self.incidence_matrix_Pub.publish(self.incidence_matrix.astype(np.float32))
+        # self.incidence_matrix_Pub.publish(self.incidence_matrix.astype(np.float32)) #can't publish 2D array???
+
+        #need to send in 1d [(shape), flat_IM]
+        temp_arr = np.append(np.array(np.shape(self.incidence_matrix)), self.incidence_matrix.flatten())
+        self.incidence_matrix_Pub.publish(temp_arr.astype(np.float32))
 
     def on_cov(self, local_estimate):
         """ called when covaraince is eastimated for each local transformation """

@@ -25,14 +25,17 @@ class GraphViz():
 
 		self.incidence_matrix_sub = rospy.Subscriber(graph_topic, numpy_msg(Floats), self.on_update)
 
-		r = 1
+		r = 10
 		self.rate = rospy.Rate(r)
 
 
-	def on_update(self, data):
+	def on_update(self, IM_raw):
 
-		self.IM = data
-		print("Incidence Matrix: \n", np.shape(self.IM.data))
+		self.IM = np.reshape(IM_raw.data[2:], IM_raw.data[:2].astype(int) )
+
+		# print("IM_raw: \n", IM_raw.data[:2].astype(np.int)  )
+		print("Incidence Matrix: \n", self.IM)
+		# np.savetxt("/home/derm/ROS/src/ICET/src/incidence_matrix.txt", self.IM.astype(np.int)) #save to disk for debug 
 
 
 if __name__ == '__main__':

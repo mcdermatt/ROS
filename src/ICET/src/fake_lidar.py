@@ -77,9 +77,9 @@ def main():
     # publish custom message with additional LIDAR info
     etcPub = rospy.Publisher('lidar_info', Num, queue_size=1) #This publisher can hold 10 msgs that haven't been sent yet.  
     rospy.init_node('LidarScanner', anonymous=False)
-    r = 10 #real time (too fast to work at full resolution)
+    # r = 10 #real time (too fast to work at full resolution)
     # r = 5 #slower real time (many sensors run at 5Hz)
-    # r = 2
+    r = 2
     # r = 1
     rate = rospy.Rate(r) # hz
     
@@ -148,26 +148,26 @@ def main():
         #     pcls = hf['point_cloud'][idx, vidx, :, :3]
         # pcNpy = pcls + 0.02*np.random.randn(len(pcls),3)
 
-        #LeddarTech PixSet LIDAR dataset
-        runlen = 273
-        # runlen = 50
-        prefix = "/home/derm/Downloads/20200721_144638_part36_1956_2229/ouster64_bfc_xyzit/" #very good quality
-        idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
-        # fn1 = prefix + "00000210.pkl"
-        fn1 = prefix + '%08d.pkl' %(idx)
-        with open(fn1, 'rb') as f:
-            data1 = pickle.load(f)
-        pcNpy = np.asarray(data1.tolist())[:,:3]
+        # #LeddarTech PixSet LIDAR dataset
+        # runlen = 273
+        # # runlen = 50
+        # prefix = "/home/derm/Downloads/20200721_144638_part36_1956_2229/ouster64_bfc_xyzit/" #very good quality
+        # idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
+        # # fn1 = prefix + "00000210.pkl"
+        # fn1 = prefix + '%08d.pkl' %(idx)
+        # with open(fn1, 'rb') as f:
+        #     data1 = pickle.load(f)
+        # pcNpy = np.asarray(data1.tolist())[:,:3]
 
-        # # Ford Campus Dataset
-        # runlen = 3889
-        # start_idx = 0
-        # idx = int(r*(rospy.get_time() - start_time)%runlen)
-        # fn1 = '/media/derm/06EF-127D2/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx + start_idx + 75)  #starts at 75
-        # dat1 = mat4py.loadmat(fn1)
-        # SCAN1 = dat1['SCAN']
-        # pcNpy = np.transpose(np.array(SCAN1['XYZ']))
-        # # pcNpy = pcNpy[pcNpy[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
+        # Ford Campus Dataset
+        runlen = 3889
+        start_idx = 0
+        idx = int(r*(rospy.get_time() - start_time)%runlen)
+        fn1 = '/media/derm/06EF-127D2/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx + start_idx + 75)  #starts at 75
+        dat1 = mat4py.loadmat(fn1)
+        SCAN1 = dat1['SCAN']
+        pcNpy = np.transpose(np.array(SCAN1['XYZ']))
+        # pcNpy = pcNpy[pcNpy[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         # pcNpyPub.publish(pcNpy)                #publish point cloud as numpy_msg (rospy)

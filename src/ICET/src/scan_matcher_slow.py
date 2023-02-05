@@ -43,7 +43,7 @@ class ScanMatcher():
 
         Publishes 6dof transformation with associated frame IDs"""
     
-    def __init__(self, scan_topic="raw_point_cloud", Skips = 2):
+    def __init__(self, scan_topic="raw_point_cloud", Skips = 3):
 
         rospy.init_node('scanmatcher', anonymous=True)
 
@@ -57,18 +57,18 @@ class ScanMatcher():
         # setting node to only register every nth frame
         # self.skips = 3
         # self.skips = 1
-        # self.skips = Skips
+        self.skips = Skips
         # self.skips = rospy.get_param('/Skips')
 
-        #if Skips is fed in as a parameter in launch file, set self.skips accordingly
-        try:
-            test = rospy.myargv(argv=sys.argv)
-            print("\n test: \n", test[1], "\n")
-            #prints "3" when I run <rosrun ICET scan_matcher.py 3>
-            self.skips = int(test[1])
-        except:
-            self.skips = 0
-        # print(self.skip,type(self.skips))
+        # #if Skips is fed in as a parameter in launch file, set self.skips accordingly
+        # try:
+        #     test = rospy.myargv(argv=sys.argv)
+        #     print("\n test: \n", test[1], "\n")
+        #     #prints "3" when I run <rosrun ICET scan_matcher.py 3>
+        #     self.skips = int(test[1])
+        # except:
+        #     self.skips = 0
+        # # print(self.skip,type(self.skips))
 
         #tf uses "broadcasters" instead of publishers
         # self.broadcaster = tf2_ros.StaticTransformBroadcaster() #tf static transform: don't change over time (not what we want!)

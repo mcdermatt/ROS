@@ -18,7 +18,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #100 for ouster #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #100 #for ouster #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -448,13 +448,13 @@ class ICET():
 			dx = tf.math.reduce_sum(dx, axis = 0)
 			self.X += dx
 
-			print("\n estimated solution vector X: \n", self.X)
+			# print("\n estimated solution vector X: \n", self.X)
 
 			#get output covariance matrix
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
-		print("pred_stds: \n", self.pred_stds)
+		# print("pred_stds: \n", self.pred_stds)
 
 		#draw PC2
 		if self.draw == True:

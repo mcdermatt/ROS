@@ -17,9 +17,11 @@ import tf2_ros
 import tf2_geometry_msgs
 
 #TODO:
-#   start out with "simple" unweighted graph to describe connections between woven 
+#   start out with "simple" unweighted graph to describe connections between woven nodes (not correct)
 
-#   Make seprate node to draw the graphical output of this 
+#       Make seprate node to draw the graphical output of this 
+
+#   Convert 6DOF transform to Homogenous Transformation
 
 class GraphMaker():
     """ Attemps to optimize many local transformations coming from simulatneous ICET scan registrations
@@ -58,6 +60,8 @@ class GraphMaker():
         #init incidence matrix
         # self.incidence_matrix = None #np.zeros([1, 1])
         self.incidence_matrix = np.zeros([2, 2])
+        self.T_vec_history = np.zeros([0,8]) 
+        self.cov_vec_history =  np.zeros([0,8]) # np.zeros([0,36]) 
 
     def get_info(self, data):
         """ Gets Lidar info from custom Num msg """
@@ -75,7 +79,13 @@ class GraphMaker():
         #local transforms come in as:
         # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
         self.local_estimate = np.array(local_estimate.data)
-        print("\n self.local_estimate \n", self.local_estimate)
+        # print("\n self.local_estimate \n", self.local_estimate[None,:])
+
+        #update T_vec
+        self.T_vec_history = np.append(self.T_vec_history, self.local_estimate[None,:], axis = 0)
+        # print("self.T_vec_history: \n", self.T_vec_history)
+        np.save("/home/derm/ROS/src/ICET/src/T_vec_history_2and3", self.T_vec_history) #save to disk for testing 
+        # ...2and3 - registering on every 2nd and every 3rd frame
 
         #UPDATE GRAPH ------------------------
         #[Nodes, Edges] 
@@ -99,7 +109,7 @@ class GraphMaker():
         self.incidence_matrix[int(self.local_estimate[6]), -1] = 1 #set indices for associated scans to 1
         self.incidence_matrix[int(self.local_estimate[7]), -1] = 1 
 
-        print("\n Incidence Matrix:", np.shape(self.incidence_matrix))
+        # print("\n Incidence Matrix:", np.shape(self.incidence_matrix))
         # print("\n Incidence Matrix:", self.incidence_matrix)
         #-------------------------------------
 
@@ -113,7 +123,10 @@ class GraphMaker():
     def on_cov(self, local_estimate):
         """ called when covaraince is eastimated for each local transformation """
 
-        pass
+        self.cov_vec_history = np.append(self.cov_vec_history, np.array(local_estimate.data)[None,:], axis = 0)
+        print("self.cov_vec_history: \n", self.cov_vec_history)
+        np.save("/home/derm/ROS/src/ICET/src/cov_vec_history_2and3", self.cov_vec_history) #save to disk for testing 
+
 
 if __name__ == '__main__':
     g = GraphMaker()

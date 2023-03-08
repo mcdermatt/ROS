@@ -43,3 +43,8 @@ rosrun funtimes talker.py
 
 #tutorial on setting up LIDAR scanner in Gazebo
 https://kiranpalla.com/blog/ros-using-gazebo-laser-scan-plug-in/
+
+roslaunch ICET woven_mapping.launch args1:="3" args2:="5"
+
+killall gzserver #use if gazebo won't  open
+gazebo --verbose ../velodyne.world #run world with custom Velodyne sensor (and plugins)

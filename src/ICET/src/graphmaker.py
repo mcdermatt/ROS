@@ -84,7 +84,7 @@ class GraphMaker():
         #update T_vec
         self.T_vec_history = np.append(self.T_vec_history, self.local_estimate[None,:], axis = 0)
         # print("self.T_vec_history: \n", self.T_vec_history)
-        np.save("/home/derm/ROS/src/ICET/src/T_vec_history_2and3", self.T_vec_history) #save to disk for testing 
+        np.save("/home/derm/ROS/src/ICET/src/T_vec_history_3and4and5", self.T_vec_history) #save to disk for testing 
         # ...2and3 - registering on every 2nd and every 3rd frame
 
         #UPDATE GRAPH ------------------------
@@ -125,7 +125,7 @@ class GraphMaker():
 
         self.cov_vec_history = np.append(self.cov_vec_history, np.array(local_estimate.data)[None,:], axis = 0)
         print("self.cov_vec_history: \n", self.cov_vec_history)
-        np.save("/home/derm/ROS/src/ICET/src/cov_vec_history_2and3", self.cov_vec_history) #save to disk for testing 
+        np.save("/home/derm/ROS/src/ICET/src/cov_vec_history_3and4and5", self.cov_vec_history) #save to disk for testing 
 
 
 if __name__ == '__main__':

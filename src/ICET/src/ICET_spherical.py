@@ -27,7 +27,7 @@ class ICET():
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 4 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.1 #0.125
+		self.RM_thresh = 0.05 #0.125
 
 		before = time.time()
 

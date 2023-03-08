@@ -43,7 +43,7 @@ class ScanMatcher():
 
         Publishes 6dof transformation with associated frame IDs"""
     
-    def __init__(self, scan_topic="raw_point_cloud", Skips = 2):
+    def __init__(self, scan_topic="raw_point_cloud", Skips = 1):
 
         rospy.init_node('scanmatcher', anonymous=True)
 
@@ -84,6 +84,8 @@ class ScanMatcher():
 
         # self.remove_moving_objects = False
         self.remove_moving_objects = True
+        self.ICET_FID = 80 #50
+        self.ICET_niter = 8 #5
 
 
         self.reset()
@@ -128,17 +130,17 @@ class ScanMatcher():
         if self.keyframe_scan is not None and self.new_scan is not None:
 
             #if flag raised by launch file, skip every frame that is not a multiple of "skips"
+            self.new_scan = self.pc_xyz
+            self.new_scan_idx = self.scan_data.frame
             if self.skips > 1:
                 if self.new_scan_idx % self.skips != 0:
                     print("skipping this one", self.new_scan_idx)
-                    self.new_scan = self.pc_xyz
-                    self.new_scan_idx = self.scan_data.frame
                     return
                 else:
-                    print("not skipping this one")
+                    print("not skipping this one", self.new_scan_idx)
 
 
-            it = ICET(cloud1 = self.keyframe_scan, cloud2 = self.new_scan, fid = 50, niter = 5, 
+            it = ICET(cloud1 = self.keyframe_scan, cloud2 = self.new_scan, fid = self.ICET_FID, niter = self.ICET_niter, 
                 draw = False, group = 2, RM = self.remove_moving_objects, DNN_filter = False, x0 = self.x0)
 
             self.X = it.X
@@ -151,7 +153,7 @@ class ScanMatcher():
             # [x, y, z, phi, theta, psi, idx_keyframe, idx_newframe]
             T_msg = np.append(self.X.numpy(), (self.keyframe_idx, self.new_scan_idx)) 
                 #produces very weired bug when publishing np_msg -> just use Floats
-            # print("\n T_msg", T_msg)
+            print("\n T_msg", T_msg)
             self.TPub.publish(T_msg)
             sigma_msg = np.append(self.pred_stds, (self.keyframe_idx, self.new_scan_idx))
             # print("\n sigma_msg", sigma_msg)
@@ -205,8 +207,6 @@ class ScanMatcher():
             print("new_scan idx = ", self.new_scan_idx)
             self.keyframe_scan = self.new_scan
             self.keyframe_idx = self.new_scan_idx
-            self.new_scan = self.pc_xyz
-            self.new_scan_idx = self.scan_data.frame
 
 def point_cloud(points, parent_frame):
     """ Creates a point cloud message.

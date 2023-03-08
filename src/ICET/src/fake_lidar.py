@@ -79,8 +79,9 @@ def main():
     rospy.init_node('LidarScanner', anonymous=False)
     # r = 10 #real time (too fast to work at full resolution)
     # r = 5 #slower real time (many sensors run at 5Hz)
-    r = 2
-    # r = 1
+    # r = 3
+    # r = 2
+    r = 1
     rate = rospy.Rate(r) # hz
     
     start_time = rospy.get_time()
@@ -120,7 +121,7 @@ def main():
         # # drive = '0005' #traffic circle, city, 150
         # # drive = '0027' #straght highway, dense forest
         # # drive = '0095' #dense residential, 260
-        # # drive = '0117' #mixed forest-residential 659 frames
+        # drive = '0117' #mixed forest-residential 659 frames
         # dataset = pykitti.raw(basedir, date, drive)
         # runlen = 650
         # # idx = int(r*rospy.get_time()%150) + 1
@@ -148,26 +149,32 @@ def main():
         #     pcls = hf['point_cloud'][idx, vidx, :, :3]
         # pcNpy = pcls + 0.02*np.random.randn(len(pcls),3)
 
-        # #LeddarTech PixSet LIDAR dataset
+        #LeddarTech PixSet LIDAR dataset
+        # drive = "20200721_144638_part36_1956_2229" #big hill and church, 273
         # runlen = 273
-        # # runlen = 50
-        # prefix = "/home/derm/Downloads/20200721_144638_part36_1956_2229/ouster64_bfc_xyzit/" #very good quality
-        # idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
-        # # fn1 = prefix + "00000210.pkl"
-        # fn1 = prefix + '%08d.pkl' %(idx)
-        # with open(fn1, 'rb') as f:
-        #     data1 = pickle.load(f)
-        # pcNpy = np.asarray(data1.tolist())[:,:3]
+        # drive = "20200617_191627_part12_1614_1842" #straight road, narrow with pedestrians and shops, 232
+        # runlen = 230
+        drive = "20200721_154835_part37_696_813" #overgrown highway
+        runlen = 120
+        # drive = "20200706_161206_part22_670_950" #suburb, 284
+        # runlen = 284
+        prefix = "/media/derm/06EF-127D2/leddartech/" + drive + "/ouster64_bfc_xyzit/"
+        idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
+        # fn1 = prefix + "00000210.pkl"
+        fn1 = prefix + '%08d.pkl' %(idx)
+        with open(fn1, 'rb') as f:
+            data1 = pickle.load(f)
+        pcNpy = np.asarray(data1.tolist())[:,:3]
 
-        # Ford Campus Dataset
-        runlen = 3889
-        start_idx = 0
-        idx = int(r*(rospy.get_time() - start_time)%runlen)
-        fn1 = '/media/derm/06EF-127D2/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx + start_idx + 75)  #starts at 75
-        dat1 = mat4py.loadmat(fn1)
-        SCAN1 = dat1['SCAN']
-        pcNpy = np.transpose(np.array(SCAN1['XYZ']))
-        # pcNpy = pcNpy[pcNpy[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
+        # # Ford Campus Dataset
+        # runlen = 3889
+        # start_idx = 0
+        # idx = int(r*(rospy.get_time() - start_time)%runlen)
+        # fn1 = '/media/derm/06EF-127D2/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx + start_idx + 75)  #starts at 75
+        # dat1 = mat4py.loadmat(fn1)
+        # SCAN1 = dat1['SCAN']
+        # pcNpy = np.transpose(np.array(SCAN1['XYZ']))
+        # # pcNpy = pcNpy[pcNpy[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         # pcNpyPub.publish(pcNpy)                #publish point cloud as numpy_msg (rospy)

@@ -47,4 +47,9 @@ https://kiranpalla.com/blog/ros-using-gazebo-laser-scan-plug-in/
 roslaunch ICET woven_mapping.launch args1:="3" args2:="5"
 
 killall gzserver #use if gazebo won't  open
-gazebo --verbose ../velodyne.world #run world with custom Velodyne sensor (and plugins)
+gazebo --verbose ../velodyne.world #run world with custom Velodyne sensor (and plugins)\
+rostopic pub /my_velodyne/vel_cmd std_msgs/Float32 1.0
+source /usr/share/gazebo/setup.sh
+source /usr/share/gazebo-11/setup.sh
+gz topic -e /gazebo/default/my_velodyne/top/sensor/scan
+

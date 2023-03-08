@@ -22,10 +22,14 @@ set(CMAKE_TARGET_DEFINITIONS_CXX
   "BOOST_THREAD_DYN_LINK"
   "LIBBULLET_VERSION=2.88"
   "LIBBULLET_VERSION_GT_282"
+  "ROSCONSOLE_BACKEND_LOG4CXX"
+  "ROS_PACKAGE_NAME=\"Project\""
   )
 
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
+  "/opt/ros/noetic/include"
+  "/opt/ros/noetic/share/xmlrpcpp/cmake/../../../include/xmlrpcpp"
   "/usr/include/gazebo-11"
   "/usr/include/bullet"
   "/usr/include/sdformat-9.8"

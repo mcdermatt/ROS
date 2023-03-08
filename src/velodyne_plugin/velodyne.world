@@ -12,11 +12,12 @@
       <uri>model://ground_plane</uri>
     </include>
 
-    <model name="velodyne_hdl-64">
+    <model name="my_velodyne">
       <!-- Give the base link a unique name -->
       <link name="base">
         <!-- Offset the base by half the lenght of the cylinder -->
         <pose>0 0 0.029335 0 0 0</pose>
+        <!-- <pose>0 0 1.029335 0 0 0</pose> -->
         <inertial>
         <mass>1.2</mass>
         <inertia>
@@ -35,6 +36,7 @@
               <!-- Radius and length provided by Velodyne -->
               <radius>.04267</radius>
               <length>.05867</length>
+              <!-- <length>1.05867</length> -->
             </cylinder>
           </geometry>
         </collision>
@@ -44,6 +46,7 @@
             <cylinder>
               <radius>.04267</radius>
               <length>.05867</length>
+              <!-- <length>1.05867</length> -->
             </cylinder>
           </geometry>
         </visual>
@@ -54,6 +57,7 @@
         <!-- Vertically offset the top cylinder by the length of the bottom
             cylinder and half the length of this cylinder. -->
         <pose>0 0 0.095455 0 0 0</pose>
+        <!-- <pose>0 0 1.095455 0 0 0</pose> -->
         <inertial>
          <mass>0.1</mass>
          <inertia>
@@ -91,6 +95,7 @@
                it by 90 degrees around the X-axis so that the <horizontal> rays
                become vertical -->
           <pose>0 0 -0.004645 1.5707 0 0</pose>
+          <!-- <pose>0 0 0.995315 1.5707 0 0</pose> -->
 
           <!-- Enable visualization to see the rays in the GUI -->
           <visualize>true</visualize>
@@ -147,6 +152,7 @@
     <joint type="revolute" name="joint">
       <!-- Position the joint at the bottom of the top link -->
       <pose>0 0 -0.036785 0 0 0</pose>
+      <!-- <pose>0 0 0.96315 0 0 0</pose> -->
       <!-- Use the base link as the parent of the joint -->
       <parent>base</parent>
       <!-- Use the top link as the child of the joint -->
@@ -164,9 +170,12 @@
       </axis>
     </joint>
     <!-- add in velocity controller -->
-    <plugin name="velodyne_control" filename="./libvelodyne_plugin.so">
+    <!-- <plugin name="velodyne_control" filename="./libvelodyne_plugin.so">
     <velocity>5</velocity>
-    </plugin>
+    </plugin> -->
+    <plugin name="velodyne_control" filename="./libvelodyne_plugin.so"/>
+    <!-- test -->
+    <!-- <plugin name="pc_output" filename="./libgazebo_ros_velodyne_gpu_laser.so"/>  -->
     </model>
 
   </world>

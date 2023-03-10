@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+project(laser_scan_node)
 
 find_package(roscpp REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -6,14 +7,25 @@ include_directories(${roscpp_INCLUDE_DIRS})
 include_directories(${std_msgs_INCLUDE_DIRS})
 
 # Find Gazebo
-find_package(gazebo REQUIRED)
+find_package(gazebo REQUIRED COMPONENTS
+roscpp
+sensor_msgs
+gazebo_msgs
+)
+
+#catkin_package()
+
 include_directories(${GAZEBO_INCLUDE_DIRS})
 link_directories(${GAZEBO_LIBRARY_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GAZEBO_CXX_FLAGS}")
 
-# Build our plugin
+# Build our plugin 
 add_library(velodyne_plugin SHARED velodyne_plugin.cc)
 target_link_libraries(velodyne_plugin ${GAZEBO_LIBRARIES} ${roscpp_LIBRARIES})
+
+# build gazebo_ros_laser(?)
+add_library(gazebo_ros_laser SHARED gazebo_ros_laser.cc)
+target_link_libraries(gazebo_ros_laser ${GAZEBO_LIBRARIES} ${roscpp_LIBRARIES})
 
 # Build the stand-alone test program
 add_executable(vel vel.cc)
@@ -21,6 +33,11 @@ add_executable(vel vel.cc)
 # Build listener node
 add_executable(listener listener.cc)
 target_link_libraries(listener ${GAZEBO_LIBRARIES} pthread)
+
+#use GPT's suggested node
+add_executable(laser_scan_node laser_scan_node.cpp)
+target_link_libraries(laser_scan_node ${catkin_LIBRARIES})
+
 
 if (${gazebo_VERSION_MAJOR} LESS 6)
   include(FindBoost)

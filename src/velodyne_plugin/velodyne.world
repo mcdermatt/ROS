@@ -16,8 +16,8 @@
       <!-- Give the base link a unique name -->
       <link name="base">
         <!-- Offset the base by half the lenght of the cylinder -->
-        <pose>0 0 0.029335 0 0 0</pose>
-        <!-- <pose>0 0 1.029335 0 0 0</pose> -->
+        <!-- <pose>0 0 0.029335 0 0 0</pose> -->
+        <pose>0 0 0.5 0 0 0</pose>
         <inertial>
         <mass>1.2</mass>
         <inertia>
@@ -35,8 +35,8 @@
             <cylinder>
               <!-- Radius and length provided by Velodyne -->
               <radius>.04267</radius>
-              <length>.05867</length>
-              <!-- <length>1.05867</length> -->
+              <!-- <length>.05867</length> -->
+              <length>1.0</length>
             </cylinder>
           </geometry>
         </collision>
@@ -45,10 +45,14 @@
           <geometry>
             <cylinder>
               <radius>.04267</radius>
-              <length>.05867</length>
-              <!-- <length>1.05867</length> -->
+              <!-- <length>.05867</length> -->
+              <length>1.0</length>
             </cylinder>
           </geometry>
+          <material>
+            <ambient>0 0 0.5 1 </ambient>
+            <!-- <script>Gazebo/WoodPallet</script> -->
+          </material>
         </visual>
       </link>
 
@@ -56,8 +60,8 @@
       <link name="top">
         <!-- Vertically offset the top cylinder by the length of the bottom
             cylinder and half the length of this cylinder. -->
-        <pose>0 0 0.095455 0 0 0</pose>
-        <!-- <pose>0 0 1.095455 0 0 0</pose> -->
+        <!-- <pose>0 0 0.095455 0 0 0</pose> -->
+        <pose>0 0 1.036 0 0 0</pose>
         <inertial>
          <mass>0.1</mass>
          <inertia>
@@ -145,6 +149,10 @@
               <resolution>0.02</resolution>
             </range>
           </ray>
+          <plugin name="sensor_plugin" filename="libgazebo_ros_laser.so">
+            <topicName>/my_velodyne/top/sensor/scan</topicName>
+            <frameName>/base</frameName>
+          </plugin>
         </sensor>
 
       </link>

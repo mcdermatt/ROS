@@ -124,6 +124,19 @@ vel/fast:
 .PHONY : vel/fast
 
 #=============================================================================
+# Target rules for targets named gazebo_ros_laser
+
+# Build rule for target.
+gazebo_ros_laser: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 gazebo_ros_laser
+.PHONY : gazebo_ros_laser
+
+# fast build rule for target.
+gazebo_ros_laser/fast:
+	$(MAKE) -f CMakeFiles/gazebo_ros_laser.dir/build.make CMakeFiles/gazebo_ros_laser.dir/build
+.PHONY : gazebo_ros_laser/fast
+
+#=============================================================================
 # Target rules for targets named velodyne_plugin
 
 # Build rule for target.
@@ -319,6 +332,19 @@ rosgraph_msgs_generate_messages_lisp/fast:
 .PHONY : rosgraph_msgs_generate_messages_lisp/fast
 
 #=============================================================================
+# Target rules for targets named laser_scan_node
+
+# Build rule for target.
+laser_scan_node: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 laser_scan_node
+.PHONY : laser_scan_node
+
+# fast build rule for target.
+laser_scan_node/fast:
+	$(MAKE) -f CMakeFiles/laser_scan_node.dir/build.make CMakeFiles/laser_scan_node.dir/build
+.PHONY : laser_scan_node/fast
+
+#=============================================================================
 # Target rules for targets named roscpp_generate_messages_lisp
 
 # Build rule for target.
@@ -343,6 +369,60 @@ rosgraph_msgs_generate_messages_py: cmake_check_build_system
 rosgraph_msgs_generate_messages_py/fast:
 	$(MAKE) -f CMakeFiles/rosgraph_msgs_generate_messages_py.dir/build.make CMakeFiles/rosgraph_msgs_generate_messages_py.dir/build
 .PHONY : rosgraph_msgs_generate_messages_py/fast
+
+gazebo_ros_laser.o: gazebo_ros_laser.cc.o
+
+.PHONY : gazebo_ros_laser.o
+
+# target to build an object file
+gazebo_ros_laser.cc.o:
+	$(MAKE) -f CMakeFiles/gazebo_ros_laser.dir/build.make CMakeFiles/gazebo_ros_laser.dir/gazebo_ros_laser.cc.o
+.PHONY : gazebo_ros_laser.cc.o
+
+gazebo_ros_laser.i: gazebo_ros_laser.cc.i
+
+.PHONY : gazebo_ros_laser.i
+
+# target to preprocess a source file
+gazebo_ros_laser.cc.i:
+	$(MAKE) -f CMakeFiles/gazebo_ros_laser.dir/build.make CMakeFiles/gazebo_ros_laser.dir/gazebo_ros_laser.cc.i
+.PHONY : gazebo_ros_laser.cc.i
+
+gazebo_ros_laser.s: gazebo_ros_laser.cc.s
+
+.PHONY : gazebo_ros_laser.s
+
+# target to generate assembly for a file
+gazebo_ros_laser.cc.s:
+	$(MAKE) -f CMakeFiles/gazebo_ros_laser.dir/build.make CMakeFiles/gazebo_ros_laser.dir/gazebo_ros_laser.cc.s
+.PHONY : gazebo_ros_laser.cc.s
+
+laser_scan_node.o: laser_scan_node.cpp.o
+
+.PHONY : laser_scan_node.o
+
+# target to build an object file
+laser_scan_node.cpp.o:
+	$(MAKE) -f CMakeFiles/laser_scan_node.dir/build.make CMakeFiles/laser_scan_node.dir/laser_scan_node.cpp.o
+.PHONY : laser_scan_node.cpp.o
+
+laser_scan_node.i: laser_scan_node.cpp.i
+
+.PHONY : laser_scan_node.i
+
+# target to preprocess a source file
+laser_scan_node.cpp.i:
+	$(MAKE) -f CMakeFiles/laser_scan_node.dir/build.make CMakeFiles/laser_scan_node.dir/laser_scan_node.cpp.i
+.PHONY : laser_scan_node.cpp.i
+
+laser_scan_node.s: laser_scan_node.cpp.s
+
+.PHONY : laser_scan_node.s
+
+# target to generate assembly for a file
+laser_scan_node.cpp.s:
+	$(MAKE) -f CMakeFiles/laser_scan_node.dir/build.make CMakeFiles/laser_scan_node.dir/laser_scan_node.cpp.s
+.PHONY : laser_scan_node.cpp.s
 
 listener.o: listener.cc.o
 
@@ -434,6 +514,7 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... vel"
+	@echo "... gazebo_ros_laser"
 	@echo "... velodyne_plugin"
 	@echo "... std_msgs_generate_messages_py"
 	@echo "... std_msgs_generate_messages_nodejs"
@@ -449,8 +530,15 @@ help:
 	@echo "... std_msgs_generate_messages_cpp"
 	@echo "... rosgraph_msgs_generate_messages_eus"
 	@echo "... rosgraph_msgs_generate_messages_lisp"
+	@echo "... laser_scan_node"
 	@echo "... roscpp_generate_messages_lisp"
 	@echo "... rosgraph_msgs_generate_messages_py"
+	@echo "... gazebo_ros_laser.o"
+	@echo "... gazebo_ros_laser.i"
+	@echo "... gazebo_ros_laser.s"
+	@echo "... laser_scan_node.o"
+	@echo "... laser_scan_node.i"
+	@echo "... laser_scan_node.s"
 	@echo "... listener.o"
 	@echo "... listener.i"
 	@echo "... listener.s"

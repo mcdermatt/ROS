@@ -14,18 +14,31 @@
  * limitations under the License.
  *
 */
-
+#include <gazebo/gazebo_config.h>
 #include <gazebo/transport/transport.hh>
 #include <gazebo/msgs/msgs.hh>
+// #include <gazebo/msgs/laserscan_stamped.proto> //test
 #include <gazebo/gazebo_client.hh>
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include <sstream>
 
 #include <iostream>
 
+
+//TODO: write similar function to take in velodyne scan info instead of world stats! 
 /////////////////////////////////////////////////
 // Function is called everytime a message is received.
+// void cb(ConstWorldStatisticsPtr &_msg)
+// {
+//   // Dump the message contents to stdout.
+//   std::cout << _msg->DebugString();
+// }
+
+//Try with LaserScanStamped anther
 void cb(ConstWorldStatisticsPtr &_msg)
 {
-  // Dump the message contents to stdout.
+  // Print when ready 
   std::cout << _msg->DebugString();
 }
 
@@ -39,6 +52,17 @@ int main(int _argc, char **_argv)
   gazebo::transport::NodePtr node(new gazebo::transport::Node());
   node->Init();
 
+  // ///////////////////////////////////////////////
+  // //TEST - set up node to publish information to ROS topic (rather than whatever gazebo passes information on)
+  // ros::init(_argc, _argv, "publisher_node");
+  // ros::NodeHandle n; //Not sure if I need this here
+
+  // //init publisher
+  // ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
+
+  // ///////////////////////////////////////////////
+
+
   // Listen to Gazebo world_stats topic
   // gazebo::transport::SubscriberPtr sub = node->Subscribe("~/world_stats", cb);
   gazebo::transport::SubscriberPtr sub = node->Subscribe("~/my_velodyne/top/sensor/scan", cb);
@@ -46,6 +70,13 @@ int main(int _argc, char **_argv)
   // Busy wait loop...replace with your own code as needed.
   while (true)
     gazebo::common::Time::MSleep(10);
+
+    // DEBUG: publish to new "chatter" topic
+    // std_msgs::String msg; //declare message object
+    // std::stringstream ss;
+    // ss << "hello world ";
+    // msg.data = ss.str();
+    // chatter_pub.publish(msg);
 
   // Make sure to shut everything down.
   gazebo::client::shutdown();

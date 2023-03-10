@@ -1,0 +1,1 @@
+/usr/bin/c++     -rdynamic CMakeFiles/subscriber_node.dir/subscriber_demo_cpp.cc.o  -o subscriber_node   -L/usr/lib/x86_64-linux-gnu/gazebo-11/plugins 

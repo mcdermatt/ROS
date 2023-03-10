@@ -1,0 +1,8 @@
+prefix=/home/derm/ROS/src/velodyne_plugin/devel
+
+Name: funtimes
+Description: Description of funtimes
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: message_runtime

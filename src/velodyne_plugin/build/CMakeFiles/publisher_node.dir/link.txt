@@ -1,0 +1,1 @@
+/usr/bin/c++     -rdynamic CMakeFiles/publisher_node.dir/publisher_demo_cpp.cc.o  -o publisher_node   -L/usr/lib/x86_64-linux-gnu/gazebo-11/plugins 

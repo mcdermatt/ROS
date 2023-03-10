@@ -23,7 +23,7 @@ set(CMAKE_TARGET_DEFINITIONS_CXX
   "LIBBULLET_VERSION=2.88"
   "LIBBULLET_VERSION_GT_282"
   "ROSCONSOLE_BACKEND_LOG4CXX"
-  "ROS_PACKAGE_NAME=\"Project\""
+  "ROS_PACKAGE_NAME=\"laser_scan_node\""
   )
 
 # The include file search paths:

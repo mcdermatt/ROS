@@ -2,6 +2,17 @@
 <sdf version="1.5">
   <world name="default">
 
+    <physics type='ode'>
+      <!-- default: step size (for real time demo but distorts point clouds) -->
+      <!-- <max_step_size>0.001000</max_step_size> -->
+      <!-- slow down for actual data generation  -->
+      <max_step_size>0.00001000</max_step_size>
+      <real_time_factor>1.000000</real_time_factor>
+      <!-- <real_time_update_rate>1000.000000</real_time_update_rate> -->
+      <real_time_update_rate>100000.000000</real_time_update_rate>
+      <gravity>0.000000 0.000000 -9.800000</gravity>
+    </physics>
+
     <!-- A global light source -->
     <include>
       <uri>model://sun</uri>
@@ -19,7 +30,8 @@
         <!-- <pose>0 0 0.029335 0 0 0</pose> -->
         <pose>0 0 0.5 0 0 0</pose>
         <inertial>
-        <mass>1.2</mass>
+        <!-- <mass>1.2</mass> -->
+        <mass>100.0</mass>
         <inertia>
           <ixx>0.001087473</ixx>
           <iyy>0.001087473</iyy>
@@ -105,7 +117,8 @@
           <visualize>true</visualize>
 
           <!-- Set the update rate of the sensor -->
-          <update_rate>30</update_rate>
+          <!-- <update_rate>30</update_rate> -->
+          <update_rate>18000</update_rate>
           <ray>
             <!-- The scan element contains the horizontal and vertical beams.
                  We are leaving out the vertical beams for this tutorial. -->
@@ -120,18 +133,21 @@
               <horizontal>
                 <!-- The velodyne has 32 beams(samples) -->
                 <samples>64</samples>
+                <!-- <samples>16</samples> -->
 
                 <!-- Resolution is multiplied by samples to determine number of
                      simulated beams vs interpolated beams. See:
                      http://sdformat.org/spec?ver=1.6&elem=sensor#horizontal_resolution
                      -->
                 <resolution>1</resolution>
+                <!-- <resolution>4</resolution> -->
 
                 <!-- Minimum angle in radians -->
                 <min_angle>-0.53529248</min_angle>
 
                 <!-- Maximum angle in radians -->
                 <max_angle>0.18622663</max_angle>
+                <!-- <max_angle>0.53529248</max_angle> -->
               </horizontal>
             </scan>
 

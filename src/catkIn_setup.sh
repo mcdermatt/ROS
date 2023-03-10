@@ -53,3 +53,4 @@ source /usr/share/gazebo/setup.sh
 source /usr/share/gazebo-11/setup.sh
 gz topic -e /gazebo/default/my_velodyne/top/sensor/scan
 
+rosrun gazebo_ros gazebo ../velodyne.world #AAAaaaaaAAAAaaaaHHHhhHHhHhHHHh that took wayyy too long to figure out

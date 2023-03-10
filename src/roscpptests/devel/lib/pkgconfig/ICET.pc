@@ -1,0 +1,8 @@
+prefix=/home/derm/ROS/src/roscpptests/devel
+
+Name: ICET
+Description: Description of ICET
+Version: 0.0.0
+Cflags: -I/home/derm/ROS/src/roscpptests/devel/include
+Libs: -L${prefix}/lib 
+Requires: 

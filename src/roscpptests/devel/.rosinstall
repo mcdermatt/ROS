@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/derm/ROS/src/roscpptests/devel/setup.sh

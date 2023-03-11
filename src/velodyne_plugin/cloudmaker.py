@@ -42,6 +42,7 @@ if gpus:
 
 #TODO:
 #		chose scan angle theta to start point cloud
+#		Make base links of velodyne RGB for XYZ
 
 class CloudMaker():
 	'''takes in sequential laser scans and generates a point cloud '''
@@ -60,6 +61,7 @@ class CloudMaker():
 		#point cloud publisher
 		self.pcPub = rospy.Publisher('static_point_cloud', PointCloud2, queue_size = 1)
 
+		# self.cloud_i = np.zeros([0,3]) #debug
 		self.init_scan()
 
 		r = 1000
@@ -67,6 +69,7 @@ class CloudMaker():
 
 	def init_scan(self):
 		"""initialize new point cloud after complete rotation of sensor"""
+
 		self.cloud_i = np.zeros([0,3])
 		self.scan_line_cart  = np.zeros([0,3])
 		# self.cloud_i = np.random.randn(100,3)
@@ -107,7 +110,7 @@ class CloudMaker():
 	def on_link_states(self, link_states):
 		#get configuration of LIDAR sensor 
 
-		# print(link_states)
+		# print(link_states.name)
 		# print(link_states.pose[2].orientation.z)
 		# print(link_states.twist[2].angular.z) #gets actual rotational velocity of velodyne sensor
 

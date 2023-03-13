@@ -63,6 +63,10 @@ class CloudMaker():
 
 		# self.cloud_i = np.zeros([0,3]) #debug
 		self.init_scan()
+		# self.last_rot = -np.pi #debug
+		self.just_published = False #debug
+
+		self.rotation_angle_noise_scale = np.deg2rad(0.5)
 
 		r = 1000
 		self.rate = rospy.Rate(r)
@@ -72,9 +76,12 @@ class CloudMaker():
 
 		self.cloud_i = np.zeros([0,3])
 		self.scan_line_cart  = np.zeros([0,3])
-		# self.cloud_i = np.random.randn(100,3)
-		self.last_rot = -np.pi
 		self.count = 0
+
+		#start/stop scans w.r.t. world frame
+		# self.last_rot = -np.pi 
+		self.just_published = True
+
 
 	def on_scan_line(self, scan_line):
 
@@ -87,9 +94,9 @@ class CloudMaker():
 		#get points in spherical coordinates
 		ranges = np.array([scan_line.ranges]).T[:,0]
 		# ranges = ranges[np.abs(ranges) < self.max_range] #remove points farther than cutoff
-		thetas = np.ones([len(ranges)])*self.velodyne_euls[2]
-		# phis = np.linspace(scan_line.angle_min, scan_line.angle_max, len(ranges))
-		phis = np.pi/2 - np.linspace(scan_line.angle_min, scan_line.angle_max, len(ranges)) #test
+		thetas = np.ones([len(ranges)])*self.velodyne_euls_top[2] #no noise in rotation
+		# thetas = np.ones([len(ranges)])*self.velodyne_euls[2] + np.random.randn()*self.rotation_angle_noise_scale
+		phis = np.pi/2 - np.linspace(scan_line.angle_min, scan_line.angle_max, len(ranges))
 
 		# print(self.velodyne_euls[2])
 
@@ -117,34 +124,42 @@ class CloudMaker():
 		#TODO: compare against prescribed velodyne setpoint published in: 
 		# <rostopic pub /my_velodyne/vel_cmd std_msgs/Float32 1.0>
 		
-		vq = link_states.pose[2].orientation
-		# print("\n vq.w", vq.w)
+		vq_top = link_states.pose[2].orientation
+		velodyne_quat_top = [vq_top.x, vq_top.y, vq_top.z, vq_top.w]
+		velodyne_quat_top = R.from_quat(velodyne_quat_top)
+		self.velodyne_euls_top = velodyne_quat_top.as_euler('xyz')
 
-		#was this
-		velodyne_quat = [vq.x, vq.y, vq.z, vq.w]
-		velodyne_quat = R.from_quat(velodyne_quat)
-		self.velodyne_euls = velodyne_quat.as_euler('xyz')
-		# #test - trying to run faster
-		# self.velodyne_euls = [0, 0, -np.pi*vq.w]
-		
-		# print('\n', self.velodyne_euls[2])
-		# print(-np.pi*vq.w)
-		# print(velodyne_quat)
+		vq_base = link_states.pose[1].orientation
+		velodyne_quat_base = [vq_base.x, vq_base.y, vq_base.z, vq_base.w]
+		velodyne_quat_base = R.from_quat(velodyne_quat_base)
+		self.velodyne_euls_base = velodyne_quat_base.as_euler('xyz')
 
 		#check for finishing a scan
-		if self.velodyne_euls[2] < self.last_rot:
+		#w.r.t. world frame:
+		#check to see if we've done a full rotatin (3.14 -> -3.14)
+		# if self.velodyne_euls_top[2] < self.last_rot:
+		#w.r.t. base frame
+		#check to see if current rotation and last pose of top are on either side of bottom 
+		if self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published:
+			print("publishing scan")
+			print("\n base:",self.velodyne_euls_base[2]) #debug
+			print("top:",self.velodyne_euls_top[2]) #debug
+			print("last:", self.last_rot)
 			#publish full point cloud (slow??)
 			self.pcPub.publish(point_cloud(self.cloud_i, 'map'))
 			# #downsample and publish
 			# downsampled_cloud = self.cloud_i[np.random.choice(len(self.cloud_i), size = 100_000)]  
 			# self.pcPub.publish(point_cloud(downsampled_cloud, 'map'))
 
+			self.last_rot = self.velodyne_euls_base[2] #test
+
 			self.init_scan()
 
 		else:
 			#update incomplete point cloud
-			self.last_rot = self.velodyne_euls[2]
+			self.last_rot = self.velodyne_euls_top[2]
 			self.count += 1
+			self.just_published = False
 			# print(self.count)
 
 	def c2s(self, pts):

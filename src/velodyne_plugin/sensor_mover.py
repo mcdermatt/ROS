@@ -42,7 +42,6 @@ if gpus:
 
 #TODO: 
 #      prompt user input
-#      set sensor velocity without resetting pose to origin 
 
 class SensorMover():
   """Sends commands to Gazebo to move the LIDAR sensor"""
@@ -53,34 +52,64 @@ class SensorMover():
 
     # self.sensor_mover_pub = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size = 1)
     self.sensor_mover_pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size = 1)
-    self.rate = rospy.Rate(100) # hz
+    self.model_state_sub = rospy.Subscriber('/gazebo/model_states', ModelState, self.on_model_states, queue_size = 1)
+    self.rate = rospy.Rate(1000) # hz
+
+    self.lidar_state = ModelState()
+    # set lidar height to that of KITTI
+    # (and so we don't get weird collision effects with ground plane)
+    self.lidar_state.pose.position.z = 1.72 
+
+    #test
+    self.dv_x = 0
+    self.dv_y = 0
 
   def main(self):
 
     while not rospy.is_shutdown(): #while there's still a roscore
 
-      # link_state = LinkState()
-      # link_state.link_name = 'my_velodyne::base'
-      # link_state.twist.linear.x  = 0.01
-      # link_state.twist.linear.y  = 0.
-      # link_state.twist.linear.z  = 0.
-      # link_state.twist.angular.x = 0.
-      # link_state.twist.angular.y = 0.
-      # link_state.twist.angular.z = 0.
-      # self.sensor_mover_pub.publish(link_state)
+      self.lidar_state.model_name = 'my_velodyne'
 
-      model_state = ModelState()
-      model_state.model_name = 'my_velodyne'
-      model_state.twist.linear.x  = 0.
-      model_state.twist.linear.y  = 5.0
-      model_state.twist.linear.z  = 0.
-      model_state.twist.angular.x = 0.
-      model_state.twist.angular.y = 0.
-      model_state.twist.angular.z = 0.
-      self.sensor_mover_pub.publish(model_state)
+      # #simple linear motion ---------------------------------------------
+      # self.lidar_state.twist.linear.x  = 0.001
+      # self.lidar_state.twist.linear.y  = 0.
+      # self.lidar_state.twist.linear.z  = 0.
+      # self.lidar_state.twist.angular.x = 0.
+      # self.lidar_state.twist.angular.y = 0.
+      # self.lidar_state.twist.angular.z = 0.
+      # self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x
+      # self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y
+      # self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z
+      # #------------------------------------------------------------------
+
+      #brownian motion --------------------------------------------------
+      self.dv_x = np.random.randn()
+      self.dv_y = np.random.randn()
+      self.lidar_state.twist.linear.x  = 0.001 #0.04*self.dv_x
+      self.lidar_state.twist.linear.y  = 0. #0.04*self.dv_y
+      self.lidar_state.twist.linear.z  = 0.
+      self.lidar_state.twist.angular.x = 0.00
+      self.lidar_state.twist.angular.y = 0.
+      self.lidar_state.twist.angular.z = 0.001 #yaw
+      self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x
+      self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y
+      self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z
+      self.lidar_state.pose.orientation.x += self.lidar_state.twist.angular.x
+      self.lidar_state.pose.orientation.y += self.lidar_state.twist.angular.y
+      self.lidar_state.pose.orientation.z += self.lidar_state.twist.angular.z
+      # self.lidar_state.pose.orientation.z = 2 #debug
+      self.lidar_state.pose.orientation.w = 1
+      #------------------------------------------------------------------
+
+      self.sensor_mover_pub.publish(self.lidar_state)
 
       #IMPORTANT: This is tied to simulation time (gazebo) NOT wall time
       self.rate.sleep()
+
+  def on_model_states(self, model_states):
+    """callback for recieving model states from gazebo"""
+
+    print(model_states)
 
 if __name__ == '__main__':
   sm = SensorMover()

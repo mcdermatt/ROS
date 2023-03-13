@@ -5,11 +5,15 @@
     <physics type='ode'>
       <!-- default: step size (for real time demo but distorts point clouds) -->
       <!-- <max_step_size>0.001000</max_step_size> -->
-      <!-- slow down for actual data generation  -->
-      <max_step_size>0.00001000</max_step_size>
-      <real_time_factor>1.000000</real_time_factor>
       <!-- <real_time_update_rate>1000.000000</real_time_update_rate> -->
+      <!-- midway point for testing -->
+      <max_step_size>0.0000100</max_step_size>
       <real_time_update_rate>100000.000000</real_time_update_rate>
+      <!-- slow down for accurate data generation  -->
+      <!-- <max_step_size>0.00000200</max_step_size> -->
+      <!-- <real_time_update_rate>500000.000000</real_time_update_rate> -->
+
+      <real_time_factor>1.000000</real_time_factor>
       <!-- <gravity>0.000000 0.000000 -9.800000</gravity> -->
       <gravity>0.000000 0.000000 0.0000</gravity>
     </physics>
@@ -25,24 +29,25 @@
     </include>
 
     <model name="my_velodyne">
-      <pose>0 0 0.5 0 0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
       <!-- Give the base link a unique name -->
       <link name="base">
         <!-- Offset the base by half the lenght of the cylinder -->
-        <!-- <pose>0 0 0.029335 0 0 0</pose> -->
-        <pose>0 0 0.5 0 0 0</pose>
+        <pose>0 0 0.029335 0 0 0</pose>
+        <!-- <pose>0 0 0.5 0 0 0</pose> -->
         <!-- <pose>0 0 1.0 0 0 0</pose> -->
         <inertial>
+        <mass>1000.0</mass>
+        <!-- leaving defaulut inertial params causes base to spin w.r.t. world (bad) -->
         <!-- <mass>1.2</mass> -->
-        <mass>100.0</mass>
-        <inertia>
+<!--         <inertia>
           <ixx>0.001087473</ixx>
           <iyy>0.001087473</iyy>
           <izz>0.001092437</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
-        </inertia>
+        </inertia> -->
         </inertial>
 
         <collision name="base_collision">
@@ -50,8 +55,8 @@
             <cylinder>
               <!-- Radius and length provided by Velodyne -->
               <radius>.04267</radius>
-              <!-- <length>.05867</length> -->
-              <length>1.0</length>
+              <length>.05867</length>
+              <!-- <length>1.0</length> -->
             </cylinder>
           </geometry>
         </collision>
@@ -60,38 +65,23 @@
           <geometry>
             <cylinder>
               <radius>.04267</radius>
-              <!-- <length>.05867</length> -->
-              <length>1.0</length>
+              <length>.05867</length>
+              <!-- <length>1.0</length> -->
             </cylinder>
           </geometry>
           <material>
-            <ambient>0 0 0.5 1 </ambient>
+            <ambient>0.25 0.25 0.25 1 </ambient>
             <!-- <script>Gazebo/WoodPallet</script> -->
           </material>
         </visual>
       </link>
 
-<!--       <link name="xarrow">
-        <pose>1 0 0 0 0 1.5</pose>
-        <visual name="xarrow_visual">
-          <geometry>
-            <cylinder>
-              <radius>.04267</radius>
-              <length>1.0</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.5 0 0 1 </ambient>
-          </material>
-        </visual>
-      </link> -->
-
       <!-- Give the base link a unique name -->
       <link name="top">
         <!-- Vertically offset the top cylinder by the length of the bottom
             cylinder and half the length of this cylinder. -->
-        <!-- <pose>0 0 0.095455 0 0 0</pose> -->
-        <pose>0 0 1.036 0 0 0</pose>
+        <pose>0 0 0.095455 0 0 0</pose>
+        <!-- <pose>0 0 1.036 0 0 0</pose> -->
         <inertial>
          <mass>0.1</mass>
          <inertia>
@@ -136,7 +126,8 @@
 
           <!-- Set the update rate of the sensor -->
           <!-- <update_rate>30</update_rate> -->
-          <update_rate>18000</update_rate>
+          <!-- <update_rate>18000</update_rate>  -->
+          <update_rate>45000</update_rate> 
           <ray>
             <!-- The scan element contains the horizontal and vertical beams.
                  We are leaving out the vertical beams for this tutorial. -->
@@ -190,6 +181,65 @@
         </sensor>
 
       </link>
+
+      <link name="xarrow">
+        <pose>0.5 0 0 0 1.5708 0</pose>
+        <!-- <pose>0.5 0 0 0 0 0 </pose> -->
+        <visual name="xarrow_visual">
+          <geometry>
+            <cylinder>
+              <radius>.015</radius>
+              <length>1.0</length>
+            </cylinder>
+            <!-- <box>
+              <size> 1 0.1 0.1</size>
+            </box> -->
+          </geometry>
+          <material>
+            <ambient>0.8 0.2 0.2 1 </ambient>
+          </material>
+        </visual>
+      </link>
+
+      <link name="yarrow">
+        <pose>0 0.5 0 1.5708 0 0</pose>
+        <visual name="yarrow_visual">
+          <geometry>
+            <cylinder>
+              <radius>.015</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.2 0.8 0.2 1 </ambient>
+          </material>
+        </visual>
+      </link>
+
+      <link name="zarrow">
+        <pose>0 0 0.5 0 0 0</pose>
+        <visual name="zarrow_visual">
+          <geometry>
+            <cylinder>
+              <radius>.015</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.2 0.2 0.8 1 </ambient>
+          </material>
+        </visual>
+      </link>
+
+<!--     <joint type="fixed" name = "xarrow_joint">
+      <parent>base</parent>
+      <child>x_arrow</child>
+    </joint> -->
+    <joint type="fixed" name = "zarrow_joint">
+      <parent>base</parent>
+      <child>z_arrow</child>
+    </joint>
+
     <!-- Each joint must have a unique name -->
     <joint type="revolute" name="joint">
       <!-- Position the joint at the bottom of the top link -->
@@ -216,8 +266,6 @@
     <velocity>5</velocity>
     </plugin> -->
     <plugin name="velodyne_control" filename="./libvelodyne_plugin.so"/>
-    <!-- test -->
-    <!-- <plugin name="pc_output" filename="./libgazebo_ros_velodyne_gpu_laser.so"/>  -->
     </model>
 
   </world>

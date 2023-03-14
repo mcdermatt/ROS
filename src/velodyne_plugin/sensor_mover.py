@@ -63,6 +63,7 @@ class SensorMover():
     #test
     self.dv_x = 0
     self.dv_y = 0
+    self.lidar_state.pose.orientation.w = 1 #debug
 
   def main(self):
 
@@ -90,15 +91,30 @@ class SensorMover():
       self.lidar_state.twist.linear.z  = 0.
       self.lidar_state.twist.angular.x = 0.00
       self.lidar_state.twist.angular.y = 0.
-      self.lidar_state.twist.angular.z = 0.001 #yaw
+      self.lidar_state.twist.angular.z = -0.0005 #yaw
       self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x
       self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y
       self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z
-      self.lidar_state.pose.orientation.x += self.lidar_state.twist.angular.x
-      self.lidar_state.pose.orientation.y += self.lidar_state.twist.angular.y
-      self.lidar_state.pose.orientation.z += self.lidar_state.twist.angular.z
-      # self.lidar_state.pose.orientation.z = 2 #debug
-      self.lidar_state.pose.orientation.w = 1
+
+      #get current pose
+      curr_pose_quat = [self.lidar_state.pose.orientation.x,
+                        self.lidar_state.pose.orientation.y,
+                        self.lidar_state.pose.orientation.z,
+                        self.lidar_state.pose.orientation.w]
+      #convert to euler angles to linearize
+      curr_pose_eul = R.from_quat(curr_pose_quat).as_euler('xyz')
+      curr_pose_eul[0] += self.lidar_state.twist.angular.x
+      curr_pose_eul[1] += self.lidar_state.twist.angular.y
+      curr_pose_eul[2] += self.lidar_state.twist.angular.z
+      # print(curr_pose_eul)
+      #convert back to quat
+      new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()
+      # print(new_pose_quat)
+      self.lidar_state.pose.orientation.x = new_pose_quat[0]
+      self.lidar_state.pose.orientation.y = new_pose_quat[1]
+      self.lidar_state.pose.orientation.z = new_pose_quat[2]
+      self.lidar_state.pose.orientation.w = new_pose_quat[3]
+      # print(self.lidar_state.pose)
       #------------------------------------------------------------------
 
       self.sensor_mover_pub.publish(self.lidar_state)

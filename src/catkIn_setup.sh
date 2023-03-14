@@ -48,7 +48,7 @@ roslaunch ICET woven_mapping.launch args1:="3" args2:="5"
 
 killall gzserver #use if gazebo won't  open
 gazebo --verbose ../velodyne.world #run world with custom Velodyne sensor (and plugins)\
-rostopic pub /my_velodyne/vel_cmd std_msgs/Float32 1.0
+rostopic pub /my_velodyne/vel_cmd std_msgs/Float32 6.28 #set velodyne unit to spin at 1 rev/s
 source /usr/share/gazebo/setup.sh
 source /usr/share/gazebo-11/setup.sh
 gz topic -e /gazebo/default/my_velodyne/top/sensor/scan

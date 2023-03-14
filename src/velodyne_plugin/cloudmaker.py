@@ -63,7 +63,7 @@ class CloudMaker():
 
 		# self.cloud_i = np.zeros([0,3]) #debug
 		self.init_scan()
-		# self.last_rot = -np.pi #debug
+		self.last_rot = -np.pi #debug
 		self.just_published = False #debug
 
 		self.rotation_angle_noise_scale = np.deg2rad(0.5)
@@ -94,11 +94,16 @@ class CloudMaker():
 		#get points in spherical coordinates
 		ranges = np.array([scan_line.ranges]).T[:,0]
 		# ranges = ranges[np.abs(ranges) < self.max_range] #remove points farther than cutoff
-		thetas = np.ones([len(ranges)])*self.velodyne_euls_top[2] #no noise in rotation
-		# thetas = np.ones([len(ranges)])*self.velodyne_euls[2] + np.random.randn()*self.rotation_angle_noise_scale
-		phis = np.pi/2 - np.linspace(scan_line.angle_min, scan_line.angle_max, len(ranges))
 
-		# print(self.velodyne_euls[2])
+		#w.r.t. world coordinate frame
+		# thetas = np.ones([len(ranges)])*self.velodyne_euls_top[2] #no noise in rotation
+		## thetas = np.ones([len(ranges)])*self.velodyne_euls[2] + np.random.randn()*self.rotation_angle_noise_scale
+	
+		#w.r.t. LIDAR sensor body frame			
+		thetas = np.ones([len(ranges)])*(self.velodyne_euls_top[2] - self.velodyne_euls_base[2]) #test
+
+
+		phis = np.pi/2 - np.linspace(scan_line.angle_min, scan_line.angle_max, len(ranges))
 
 		scan_line_spherical = np.array([ranges, thetas, phis]).T #was this (wrong??)
 		# scan_line_spherical = np.array([ranges, phis, thetas]).T
@@ -134,20 +139,18 @@ class CloudMaker():
 		velodyne_quat_base = R.from_quat(velodyne_quat_base)
 		self.velodyne_euls_base = velodyne_quat_base.as_euler('xyz')
 
-		#check for finishing a scan
-		#w.r.t. world frame:
+		#check for finishing a scan w.r.t. world frame:
 		#check to see if we've done a full rotatin (3.14 -> -3.14)
 		# if self.velodyne_euls_top[2] < self.last_rot:
 		#w.r.t. base frame
 		#check to see if current rotation and last pose of top are on either side of bottom 
-		if self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published:
-			print("publishing scan")
-			print("\n base:",self.velodyne_euls_base[2]) #debug
-			print("top:",self.velodyne_euls_top[2]) #debug
-			print("last:", self.last_rot)
-			#publish full point cloud (slow??)
-			self.pcPub.publish(point_cloud(self.cloud_i, 'map'))
-			# #downsample and publish
+		if self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published:   #only works for +z rotation...
+			# or self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published:
+			# print("publishing scan")
+			# print("\n base:",self.velodyne_euls_base[2]) #debug
+			# print("top:",self.velodyne_euls_top[2]) #debug
+			# print("last:", self.last_rot)
+			self.pcPub.publish(point_cloud(self.cloud_i, 'map')) #publish full point cloud
 			# downsampled_cloud = self.cloud_i[np.random.choice(len(self.cloud_i), size = 100_000)]  
 			# self.pcPub.publish(point_cloud(downsampled_cloud, 'map'))
 

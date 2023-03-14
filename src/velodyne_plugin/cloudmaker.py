@@ -144,12 +144,15 @@ class CloudMaker():
 		# if self.velodyne_euls_top[2] < self.last_rot:
 		#w.r.t. base frame
 		#check to see if current rotation and last pose of top are on either side of bottom 
-		if self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published:   #only works for +z rotation...
-			# or self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published:
-			# print("publishing scan")
-			# print("\n base:",self.velodyne_euls_base[2]) #debug
-			# print("top:",self.velodyne_euls_top[2]) #debug
-			# print("last:", self.last_rot)
+		#only works for +z rotation...
+		# if self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published:   
+		if ((self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published)   \
+			or (self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published)) \
+			and np.abs(np.sin(self.velodyne_euls_top[2]) - np.sin(self.velodyne_euls_base[2])) < 0.1:
+			print("publishing scan")
+			print("\n base:",self.velodyne_euls_base[2]) #debug
+			print("top:",self.velodyne_euls_top[2]) #debug
+			print("last:", self.last_rot)
 			self.pcPub.publish(point_cloud(self.cloud_i, 'map')) #publish full point cloud
 			# downsampled_cloud = self.cloud_i[np.random.choice(len(self.cloud_i), size = 100_000)]  
 			# self.pcPub.publish(point_cloud(downsampled_cloud, 'map'))

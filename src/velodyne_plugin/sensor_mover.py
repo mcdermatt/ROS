@@ -42,6 +42,7 @@ if gpus:
 
 #TODO: 
 #      prompt user input
+#      post twist commands to topic so /naive_linear_corrector node can attempt to fix
 
 class SensorMover():
   """Sends commands to Gazebo to move the LIDAR sensor"""
@@ -52,6 +53,7 @@ class SensorMover():
 
     # self.sensor_mover_pub = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size = 1)
     self.sensor_mover_pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size = 1)
+    self.twist_pub = rospy.Publisher('/velodyne_base_vel_setpoint', Twist, queue_size = 1)
     self.model_state_sub = rospy.Subscriber('/gazebo/model_states', ModelState, self.on_model_states, queue_size = 1)
     self.rate = rospy.Rate(1000) # hz
 
@@ -75,23 +77,20 @@ class SensorMover():
       # self.lidar_state.twist.linear.x  = 0.001
       # self.lidar_state.twist.linear.y  = 0.
       # self.lidar_state.twist.linear.z  = 0.
-      # self.lidar_state.twist.angular.x = 0.
-      # self.lidar_state.twist.angular.y = 0.
-      # self.lidar_state.twist.angular.z = 0.
       # self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x
       # self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y
       # self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z
       # #------------------------------------------------------------------
 
-      #brownian motion --------------------------------------------------
+      #more complex motion -----------------------------------------------
       self.dv_x = np.random.randn()
       self.dv_y = np.random.randn()
-      self.lidar_state.twist.linear.x  = 0.001 #0.04*self.dv_x
+      self.lidar_state.twist.linear.x  = 0.#0.001*self.dv_x
       self.lidar_state.twist.linear.y  = 0. #0.04*self.dv_y
       self.lidar_state.twist.linear.z  = 0.
       self.lidar_state.twist.angular.x = 0.00
       self.lidar_state.twist.angular.y = 0.
-      self.lidar_state.twist.angular.z = -0.0005 #yaw
+      self.lidar_state.twist.angular.z = -0.00035 #yaw
       self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x
       self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y
       self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z
@@ -114,10 +113,13 @@ class SensorMover():
       self.lidar_state.pose.orientation.y = new_pose_quat[1]
       self.lidar_state.pose.orientation.z = new_pose_quat[2]
       self.lidar_state.pose.orientation.w = new_pose_quat[3]
-      # print(self.lidar_state.pose)
+      # print(self.lidar_state.twist)
       #------------------------------------------------------------------
 
       self.sensor_mover_pub.publish(self.lidar_state)
+
+      #TODO: pub commanded twist @twistpub
+      self.twist_pub.publish(self.lidar_state.twist)
 
       #IMPORTANT: This is tied to simulation time (gazebo) NOT wall time
       self.rate.sleep()

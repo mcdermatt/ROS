@@ -59,11 +59,12 @@ class CloudMaker():
 		# subscriber for poses and velocities of each link in model
 		self.link_state_sub = rospy.Subscriber('/gazebo/link_states', LinkStates, self.on_link_states, queue_size = 1) #buff_size = 10)
 		#point cloud publisher
-		self.pcPub = rospy.Publisher('static_point_cloud', PointCloud2, queue_size = 1)
+		self.pcPub = rospy.Publisher('raw_point_cloud', PointCloud2, queue_size = 1)
 
 		# self.cloud_i = np.zeros([0,3]) #debug
 		self.init_scan()
 		self.last_rot = -np.pi #debug
+		self.dist_since_last_frame = 0
 		self.just_published = False #debug
 
 		self.rotation_angle_noise_scale = np.deg2rad(0.5)
@@ -139,30 +140,53 @@ class CloudMaker():
 		velodyne_quat_base = R.from_quat(velodyne_quat_base)
 		self.velodyne_euls_base = velodyne_quat_base.as_euler('xyz')
 
+		# #DEBUG ZONE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# if self.count % 100 == 0:
+		# 	print("top:",self.velodyne_euls_top[2], " base:",self.velodyne_euls_base[2], " last:", self.last_rot)
+		# 	cond1 = (self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published)
+		# 	cond2 = (self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published)
+		# 	cond3 = np.abs(self.velodyne_euls_top[2] - self.velodyne_euls_base[2]) < 0.1
+		# 	print(cond1, cond2, cond3)
+
+		# #looks like cond3 is working as intended
+
+		# #this might be a multiprocessing issue??
+
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 		#check for finishing a scan w.r.t. world frame:
 		#check to see if we've done a full rotatin (3.14 -> -3.14)
 		# if self.velodyne_euls_top[2] < self.last_rot:
 		#w.r.t. base frame
-		#check to see if current rotation and last pose of top are on either side of bottom 
-		#only works for +z rotation...
-		# if self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published:   
-		if ((self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published)   \
-			or (self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published)) \
-			and np.abs(np.sin(self.velodyne_euls_top[2]) - np.sin(self.velodyne_euls_base[2])) < 0.1:
-			print("publishing scan")
-			print("\n base:",self.velodyne_euls_base[2]) #debug
-			print("top:",self.velodyne_euls_top[2]) #debug
-			print("last:", self.last_rot)
+		#check to see if current rotation and last pose straddle start point on bottom of sensor 
+		# if ((self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published)   \
+		# 	or (self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published)) \
+		# 	and np.abs(self.velodyne_euls_top[2] - self.velodyne_euls_base[2]) < 0.1:
+		if np.abs(np.sin(self.velodyne_euls_base[2]) - np.sin(self.velodyne_euls_top[2])) < 0.01 \
+			and np.abs(np.cos(self.velodyne_euls_base[2]) - np.cos(self.velodyne_euls_top[2])) < 0.01 \
+			and self.dist_since_last_frame > 0.5: #make sure we didn't just save a scan
+			# print("\n publishing scan")
+			# print("base:",self.velodyne_euls_base[2]) #debug
+			# print("top:",self.velodyne_euls_top[2]) #debug
+			# print("last:", self.last_rot)
+
 			self.pcPub.publish(point_cloud(self.cloud_i, 'map')) #publish full point cloud
 			# downsampled_cloud = self.cloud_i[np.random.choice(len(self.cloud_i), size = 100_000)]  
 			# self.pcPub.publish(point_cloud(downsampled_cloud, 'map'))
 
+			self.dist_since_last_frame = 0
 			self.last_rot = self.velodyne_euls_base[2] #test
 
 			self.init_scan()
 
 		else:
+			# if np.abs(self.velodyne_euls_top[2] - self.last_rot) > 0.1:
+			# 	print("\n  top:",self.velodyne_euls_top[2]) #debug
+			# 	print("last:", self.last_rot)
 			#update incomplete point cloud
+			# self.dist_since_last_frame += np.abs(self.velodyne_euls_top[2] - self.last_rot) #issues with crossing 0
+			self.dist_since_last_frame += np.abs((self.velodyne_euls_top[2] - self.last_rot)) % (6.28) #bug here...
+			# print(self.dist_since_last_frame)
 			self.last_rot = self.velodyne_euls_top[2]
 			self.count += 1
 			self.just_published = False

@@ -85,7 +85,7 @@ class SensorMover():
       #more complex motion -----------------------------------------------
       self.dv_x = np.random.randn()
       self.dv_y = np.random.randn()
-      self.lidar_state.twist.linear.x  = 0.#0.001*self.dv_x
+      self.lidar_state.twist.linear.x  = 0.001 #*self.dv_x
       self.lidar_state.twist.linear.y  = 0. #0.04*self.dv_y
       self.lidar_state.twist.linear.z  = 0.
       self.lidar_state.twist.angular.x = 0.00

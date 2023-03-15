@@ -23,6 +23,7 @@ from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
 import numpy as np
 import tf_conversions
 import tf2_ros
+from std_msgs.msg import Float32
 
 #limit GPU memory ---------------------------------------------------------------------
 # if you don't include this TensorFlow WILL eat up all your VRAM and make rviz run poorly
@@ -45,6 +46,7 @@ class DistortionCorrector:
 
 		self.pcSub = rospy.Subscriber(raw_pc_topic, PointCloud2, self.on_point_cloud, queue_size = 1)
 		self.vel_estimate_sub = rospy.Subscriber('/velodyne_base_vel_setpoint', Twist, self.on_linear_vel_estimate, queue_size = 1)
+		self.lidar_rotation_rate_sub = rospy.Subscriber('/my_velodyne/vel_cmd', Float32, self.on_lidar_vel_cmd, queue_size = 1)
 		self.link_state_sub = rospy.Subscriber('/gazebo/link_states', LinkStates, self.on_link_states, queue_size = 1) #buff_size = 10)
 		self.pcPub = rospy.Publisher('/rectified_point_cloud', PointCloud2, queue_size = 1)
 		r = 1000
@@ -59,6 +61,7 @@ class DistortionCorrector:
 		#		at the exact time point cloud data comes in- don't change these values
 		#		until we get the next raw point cloud
 		vel = self.liner_vel_estimate
+		period_base = (2*np.pi)/vel[-1]
 		base_rot_euls = self.velodyne_euls_base
 
 		#convert cloud msg to np array
@@ -72,24 +75,57 @@ class DistortionCorrector:
 		# self.pc_xyz = self.pc_xyz[self.pc_xyz[:,0] < 10_000]
 		# print(self.pc_xyz)
 
-		#point cloud already aligned with base frame of LIDAR sensor(?)  
+		#is point cloud already aligned with base frame of LIDAR sensor? -yes(?)
 
 		#convert to spherical coordinates
 		self.pc_spherical = self.c2s(self.pc_xyz).numpy()
 
+		#Because of body frame yaw rotation, we're not always doing a full roation - we need to "uncurl" initial point cloud
+		# (not baked in to motion profile)
+		self.pc_spherical = self.pc_spherical[np.argsort(self.pc_spherical[:,1])] #sort by azim angle
+
+		#use orientation of base of velodyne unit to set where to split PC
+		# --> orient start of split with base of velodyne unit
+		# print(base_rot_euls[2])
+		# print(vel)
+		#shift everything by base frame and wrap around points more than +-2pi
+		# self.pc_spherical[:,1] = self.pc_spherical[:,1] + base_rot_euls[2] - vel[-1]
+		# self.pc_spherical[:,1] = self.pc_spherical[:,1] + vel[-1]# + np.pi
+		# self.pc_spherical[:,1] = self.pc_spherical[:,1] + np.pi
+		# self.pc_spherical[:,1] = (self.pc_spherical[:,1] - base_rot_euls[2] + 2*np.pi) % (2*np.pi)# - np.pi
+		# print(self.pc_spherical[::1000,1])
+		#--------------------------------------
+
+		#get total overlap in rotation between LIDAR and base frames (since both are rotating w.r.t. world Z)
+		total_rot = np.pi*vel[-1]*(period_base*self.period_lidar)/(period_base + self.period_lidar) #was this
+		# total_rot = vel[-1]*(period_base*self.period_lidar)/(period_base + self.period_lidar) #test
+		# total_rot = vel[-1]*(2*np.pi/(vel[-1] + self.lidar_cmd_vel))
+		print("total_rot", total_rot)
+		# print(vel)
+
+		#reorient
+		# self.pc_spherical[:,1] += np.pi  #total_rot/2
+		self.pc_spherical[:,1] -= np.pi 
+
+		#scale linearly starting at theta = 0
+		self.pc_spherical[:,1] = (self.pc_spherical[:,1])*((2*np.pi - total_rot)/(2*np.pi))
+		# self.pc_spherical[:,1] = (self.pc_spherical[:,1] - np.pi)*((2*np.pi - total_rot)/(2*np.pi)) + np.pi
+
+		#publish as is
+		undistorted_pc = self.s2c(self.pc_spherical).numpy() #convert back to xyz
+
+		# #Linear velocity model -> assume velocity distortion is directly proportional to each point's theta (yaw) angle 
 		#sort by azim angle
+		# self.pc_xyz = self.s2c(self.pc_spherical).numpy()
 		self.pc_xyz = self.pc_xyz[np.argsort(self.pc_spherical[:,1])]
+		#assuming period of 1s
+		motion_profile = np.linspace(0, 1, len(self.pc_xyz))[:,None] @ vel[None,:] 
+		#variable period
+		# motion_profile = np.linspace(0, 1, len(self.pc_xyz))[:,None] @ (vel[None,:]*(period_base*self.period_lidar)/(period_base + self.period_lidar)) 
 
-		#TODO: uncurl initial point cloud 
-		#		this is something that motion profile does not have baked in automatically
-
-		#Linear velocity model -> assume velocity distortion is directly proportional to each point's theta (yaw) angle 
-		motion_profile = np.linspace(0, 1, len(self.pc_xyz))[:,None] @ vel[None,:]
-		print(vel)
 		undistorted_pc = self.remove_motion_distortion(self.pc_xyz, motion_profile)
-		self.pcPub.publish(point_cloud(undistorted_pc, 'map'))
-		# print(undistorted_pc)
 
+		self.pcPub.publish(point_cloud(undistorted_pc, 'map'))
 
 	def remove_motion_distortion(self, points, motion_profile):
 		"""
@@ -130,7 +166,7 @@ class DistortionCorrector:
 
 	def on_linear_vel_estimate(self, t):
 		"""callback func for when node recieves linear velocity estimate from SensorMover"""
-		vel_pub_rate = 1000
+		vel_pub_rate = 1000 # THIS DEPENDS ON LIDAR SAMPLING FREQUENCY (i.e. 1Hz for testing)
 		self.liner_vel_estimate = -np.array([t.linear.x, t.linear.y, t.linear.z,
 											t.angular.x, t.angular.y, t.angular.z]) * vel_pub_rate
 		# print(self.liner_vel_estimate)
@@ -143,6 +179,12 @@ class DistortionCorrector:
 		velodyne_quat_base = [vq_base.x, vq_base.y, vq_base.z, vq_base.w]
 		velodyne_quat_base = R.from_quat(velodyne_quat_base)
 		self.velodyne_euls_base = velodyne_quat_base.as_euler('xyz')
+
+	def on_lidar_vel_cmd(self, cmd_vel):
+		"""cb to get rotational velocity commanded of LIDAR unit -> need this to properly uncurl the scan"""
+		self.lidar_cmd_vel = cmd_vel.data
+		self.period_lidar  = (2*np.pi)/self.lidar_cmd_vel
+		print("updating lidar cmd_vel to:", self.lidar_cmd_vel)
 
 	def c2s(self, pts):
 		""" converts points from cartesian coordinates to spherical coordinates """

@@ -52,15 +52,30 @@ class DistortionCorrector:
 		r = 1000
 		self.rate = rospy.Rate(r)
 
-		self.liner_vel_estimate = np.zeros([6])
+		self.linear_vel_estimate = np.zeros([6])
+
+		#init for debug
+		self.rotation_at_last_keyframe = 0
+		self.rotation_at_new_keyframe = 1
 
 	def on_point_cloud(self, scan):
 		"""callback function for when node recieves raw point cloud"""
 
+
+		#DEBUG: manually calculate how much base of LIDAR has moved between keyframes
+		self.rotation_at_new_keyframe = self.velodyne_euls_base[2]
+		print("\n \n")
+		print("rotation_at_new_keyframe", self.rotation_at_new_keyframe)
+		print("rotation_at_last_keyframe", self.rotation_at_last_keyframe)
+		self.rot_between_keyframes = -self.rotation_at_new_keyframe + self.rotation_at_last_keyframe
+		print("rot between keyframes (from gazebo)", self.rot_between_keyframes)
+		self.rotation_at_last_keyframe = self.rotation_at_new_keyframe
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 		# need to hold on to linear velocity estimate and sensor body frame poses
 		#		at the exact time point cloud data comes in- don't change these values
 		#		until we get the next raw point cloud
-		vel = self.liner_vel_estimate
+		vel = self.linear_vel_estimate
 		period_base = (2*np.pi)/vel[-1]
 		base_rot_euls = self.velodyne_euls_base
 
@@ -72,7 +87,7 @@ class DistortionCorrector:
 		self.pc_xyz = np.array(xyz)
 
 		#remove inf values
-		# self.pc_xyz = self.pc_xyz[self.pc_xyz[:,0] < 10_000]
+		self.pc_xyz = self.pc_xyz[self.pc_xyz[:,0] < 10_000]
 		# print(self.pc_xyz)
 
 		#is point cloud already aligned with base frame of LIDAR sensor? -yes(?)
@@ -97,33 +112,36 @@ class DistortionCorrector:
 		#--------------------------------------
 
 		#get total overlap in rotation between LIDAR and base frames (since both are rotating w.r.t. world Z)
-		total_rot = np.pi*vel[-1]*(period_base*self.period_lidar)/(period_base + self.period_lidar) #was this
-		# total_rot = vel[-1]*(period_base*self.period_lidar)/(period_base + self.period_lidar) #test
-		# total_rot = vel[-1]*(2*np.pi/(vel[-1] + self.lidar_cmd_vel))
-		print("total_rot", total_rot)
-		# print(vel)
+		# point of intersection = (t_intersection) * (angular velocity base)
+		#						= ((n * T_a * T_b) / (T_a + T_b)) * omega_base 
+
+		# total_rot = np.pi*vel[-1]*(period_base*self.period_lidar)/(period_base + self.period_lidar) #was this (wrong)
+		# total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(vel[-1] + self.lidar_cmd_vel)) #test
+		total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(-vel[-1] + self.lidar_cmd_vel)) #best!
+
+		print("rot between keyframes (analytic method)", total_rot)
+		print("velocity of base", vel[-1])
+		print("velocity of lidar sensor", self.lidar_cmd_vel)
+
 
 		#reorient
-		# self.pc_spherical[:,1] += np.pi  #total_rot/2
-		self.pc_spherical[:,1] -= np.pi 
+		# self.pc_spherical[:,1] -= np.pi #was this
 
 		#scale linearly starting at theta = 0
 		self.pc_spherical[:,1] = (self.pc_spherical[:,1])*((2*np.pi - total_rot)/(2*np.pi))
 		# self.pc_spherical[:,1] = (self.pc_spherical[:,1] - np.pi)*((2*np.pi - total_rot)/(2*np.pi)) + np.pi
+		# self.pc_spherical[:,1] = (self.pc_spherical[:,1] - np.pi)*((2*np.pi - total_rot)/(2*np.pi)) + np.pi #test
+
 
 		#publish as is
 		undistorted_pc = self.s2c(self.pc_spherical).numpy() #convert back to xyz
 
-		# #Linear velocity model -> assume velocity distortion is directly proportional to each point's theta (yaw) angle 
-		#sort by azim angle
-		# self.pc_xyz = self.s2c(self.pc_spherical).numpy()
-		self.pc_xyz = self.pc_xyz[np.argsort(self.pc_spherical[:,1])]
-		#assuming period of 1s
-		motion_profile = np.linspace(0, 1, len(self.pc_xyz))[:,None] @ vel[None,:] 
-		#variable period
-		# motion_profile = np.linspace(0, 1, len(self.pc_xyz))[:,None] @ (vel[None,:]*(period_base*self.period_lidar)/(period_base + self.period_lidar)) 
-
-		undistorted_pc = self.remove_motion_distortion(self.pc_xyz, motion_profile)
+		# # #Linear velocity model -> assume velocity distortion is directly proportional to each point's theta (yaw) angle 
+		# #sort by azim angle
+		# self.pc_xyz = self.pc_xyz[np.argsort(self.pc_spherical[:,1])]
+		# # motion_profile = np.linspace(0, 1, len(self.pc_xyz))[:,None] @ vel[None,:]				#assuming period of 1s 
+		# motion_profile = np.linspace(0, self.period_lidar, len(self.pc_xyz))[:,None] @ vel[None,:]  # variable period
+		# undistorted_pc = self.remove_motion_distortion(self.pc_xyz, motion_profile)
 
 		self.pcPub.publish(point_cloud(undistorted_pc, 'map'))
 
@@ -167,9 +185,9 @@ class DistortionCorrector:
 	def on_linear_vel_estimate(self, t):
 		"""callback func for when node recieves linear velocity estimate from SensorMover"""
 		vel_pub_rate = 1000 # THIS DEPENDS ON LIDAR SAMPLING FREQUENCY (i.e. 1Hz for testing)
-		self.liner_vel_estimate = -np.array([t.linear.x, t.linear.y, t.linear.z,
+		self.linear_vel_estimate = np.array([t.linear.x, t.linear.y, t.linear.z,
 											t.angular.x, t.angular.y, t.angular.z]) * vel_pub_rate
-		# print(self.liner_vel_estimate)
+		# print(self.linear_vel_estimate)
 
 
 	def on_link_states(self, link_states):

@@ -53,6 +53,7 @@ class DistortionCorrector:
 		self.rate = rospy.Rate(r)
 
 		self.linear_vel_estimate = np.zeros([6])
+		self.buffer_width = np.deg2rad(2) #copy this from cloudmaker script
 
 		#init for debug
 		self.rotation_at_last_keyframe = 0
@@ -116,25 +117,41 @@ class DistortionCorrector:
 		#						= ((n * T_a * T_b) / (T_a + T_b)) * omega_base 
 
 		# total_rot = np.pi*vel[-1]*(period_base*self.period_lidar)/(period_base + self.period_lidar) #was this (wrong)
-		# total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(vel[-1] + self.lidar_cmd_vel)) #test
-		total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(-vel[-1] + self.lidar_cmd_vel)) #best!
+		total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(-vel[-1] + self.lidar_cmd_vel)) #this works!
+
+		#TODO: add width of buffer used to trigger new rotation to this value  
+		total_rot += self.buffer_width
 
 		print("rot between keyframes (analytic method)", total_rot)
 		print("velocity of base", vel[-1])
 		print("velocity of lidar sensor", self.lidar_cmd_vel)
 
-
 		#reorient
-		# self.pc_spherical[:,1] -= np.pi #was this
+		self.pc_spherical[:,1] -= np.pi #was this
+		# self.pc_spherical[:,1] += total_rot
+		# self.pc_spherical[:,1] = self.pc_spherical[:,1] % (2*np.pi) - np.pi
 
 		#scale linearly starting at theta = 0
-		self.pc_spherical[:,1] = (self.pc_spherical[:,1])*((2*np.pi - total_rot)/(2*np.pi))
-		# self.pc_spherical[:,1] = (self.pc_spherical[:,1] - np.pi)*((2*np.pi - total_rot)/(2*np.pi)) + np.pi
-		# self.pc_spherical[:,1] = (self.pc_spherical[:,1] - np.pi)*((2*np.pi - total_rot)/(2*np.pi)) + np.pi #test
-
+		# self.pc_spherical[:,1] = (self.pc_spherical[:,1])*((2*np.pi - total_rot)/(2*np.pi))
+		# self.pc_spherical[:,1] = (self.pc_spherical[:,1] + np.pi)*((2*np.pi - total_rot)/(2*np.pi)) - np.pi
+		self.pc_spherical[:,1] = ((self.pc_spherical[:,1] + np.pi) % (2*np.pi))*((2*np.pi - total_rot)/(2*np.pi)) + total_rot #- np.pi #works
 
 		#publish as is
 		undistorted_pc = self.s2c(self.pc_spherical).numpy() #convert back to xyz
+
+		# #debug: add points at theta = 0------------------------------------
+		# z = np.zeros([100,3])
+		# z[:,2] = np.pi/2
+		# z[:,0] = np.linspace(0,10,100)
+		# undistorted_pc = np.append(undistorted_pc, self.s2c(z), axis  = 0)
+
+		# #draw points at split line
+		# sl = np.ones([100,3])
+		# sl[:,0] = np.linspace(0,10,100)
+		# sl[:,2] = np.pi/2
+		# sl[:,1] = total_rot
+		# undistorted_pc = np.append(undistorted_pc, self.s2c(sl), axis  = 0)
+		# #------------------------------------------------------------------
 
 		# # #Linear velocity model -> assume velocity distortion is directly proportional to each point's theta (yaw) angle 
 		# #sort by azim angle

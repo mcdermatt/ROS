@@ -53,7 +53,7 @@ class DistortionCorrector:
 		self.rate = rospy.Rate(r)
 
 		self.linear_vel_estimate = np.zeros([6])
-		self.buffer_width = -np.deg2rad(2.5) #copy this from cloudmaker script
+		self.buffer_width = np.deg2rad(2.5) #calculate this from cloudmaker script
 
 		#init for debug
 		self.rotation_at_last_keyframe = 0
@@ -154,11 +154,11 @@ class DistortionCorrector:
 		print("rectified_vel:", rectified_vel)
 		# # variable period
 		T = (2*np.pi)/(-vel[-1] + self.lidar_cmd_vel) #time to complete 1 scan #was this
-		# motion_profile = np.linspace(0, T, len(self.pc_xyz))[:,None] @ rectified_vel
+		print("T alt:", T)
 		# motion_profile = np.linspace(0, 1, len(self.pc_xyz))[:,None] @ rectified_vel #-pi to pi (wrong)
 		#need to go from 0 to 2pi
-		# T = 1 # assuming period of 1s
-		T = 0.8 #DEBUG
+		T = 1 # assuming period of 1s
+		# T = 0.8 #DEBUG
 		print("T:", T)
 		#DEBUG: this is a bad way of doing it ... what happens if most of the points are on the left half of the scene??
 		part2 = np.linspace(0.5*T, 1.0*T, len(self.pc_xyz)//2)[:,None]

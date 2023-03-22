@@ -164,6 +164,7 @@ class CloudMaker():
 		# 	and np.abs(self.velodyne_euls_top[2] - self.velodyne_euls_base[2]) < 0.1:
 		thresh = 0.0025
 		# thresh = 0.005
+		# thresh = 0.03 #debug
 		if np.abs(np.sin(self.velodyne_euls_base[2]) - np.sin(self.velodyne_euls_top[2])) < thresh \
 			and np.abs(np.cos(self.velodyne_euls_base[2]) - np.cos(self.velodyne_euls_top[2])) < thresh \
 			and self.dist_since_last_frame > 0.5: #make sure we didn't just save a scan

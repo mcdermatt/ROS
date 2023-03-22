@@ -94,7 +94,7 @@ class SensorMover():
       self.lidar_state.twist.angular.y = 0.
       # self.lidar_state.twist.angular.z = -0.00125 #fast yaw
       # self.lidar_state.twist.angular.z = -0.00025 #slower yaw
-      # self.lidar_state.twist.angular.z = -2e-5 #realistic(?) yaw
+      # self.lidar_state.twist.angular.z = -2e-5 #realistic KITTI yaw
       self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x
       self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y
       self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z
@@ -108,7 +108,8 @@ class SensorMover():
       curr_pose_eul = R.from_quat(curr_pose_quat).as_euler('xyz')
       curr_pose_eul[0] += self.lidar_state.twist.angular.x
       curr_pose_eul[1] += self.lidar_state.twist.angular.y
-      curr_pose_eul[2] += self.lidar_state.twist.angular.z
+      # curr_pose_eul[2] += self.lidar_state.twist.angular.z
+      curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
       # print(curr_pose_eul)
       #convert back to quat
       new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()

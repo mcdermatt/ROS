@@ -56,7 +56,9 @@ class SensorMover():
     self.twist_pub = rospy.Publisher('/velodyne_base_vel_setpoint', Twist, queue_size = 1)
     self.model_state_sub = rospy.Subscriber('/gazebo/model_states', ModelState, self.on_model_states, queue_size = 1)
     self.rate = rospy.Rate(1000) # hz
+    self.reset()
 
+  def reset(self):
     self.lidar_state = ModelState()
     # set lidar height to that of KITTI
     # (and so we don't get weird collision effects with ground plane)
@@ -85,12 +87,13 @@ class SensorMover():
       #more complex motion -----------------------------------------------
       self.dv_x = np.random.randn()
       self.dv_y = np.random.randn()
-      # self.lidar_state.twist.linear.x  = 0.001 #0.001 #*self.dv_x
+      self.lidar_state.twist.linear.x  = 0.003 #0.001 #*self.dv_x
       self.lidar_state.twist.linear.y  = 0. #0.04*self.dv_y
       self.lidar_state.twist.linear.z  = 0.
       self.lidar_state.twist.angular.x = 0.00
       self.lidar_state.twist.angular.y = 0.
-      self.lidar_state.twist.angular.z = -0.00125 #fast yaw
+      # self.lidar_state.twist.angular.z = -0.00125 #fast yaw
+      # self.lidar_state.twist.angular.z = -0.00025 #slower yaw
       # self.lidar_state.twist.angular.z = -2e-5 #realistic(?) yaw
       self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x
       self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y
@@ -115,6 +118,11 @@ class SensorMover():
       self.lidar_state.pose.orientation.z = new_pose_quat[2]
       self.lidar_state.pose.orientation.w = new_pose_quat[3]
       # print(self.lidar_state.twist)
+
+      #reset if we get too far from start pose
+      if self.lidar_state.pose.position.x > 16:
+        self.reset()
+
       #------------------------------------------------------------------
 
       self.sensor_mover_pub.publish(self.lidar_state)

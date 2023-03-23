@@ -18,6 +18,14 @@
       <gravity>0.000000 0.000000 0.0000</gravity>
     </physics>
 
+    <plugin name="joint_velocity_controller" filename="./libjoint_velocity_controller.so">
+      <!-- <robotNamespace>/my_velodyne</robotNamespace> -->
+      <updateRate>50.0</updateRate>
+      <jointName>x_joint</jointName>
+      <!-- <jointName>joint2</jointName> -->
+      <!-- <jointName>joint3</jointName> -->
+    </plugin>
+
     <!-- A global light source -->
     <include>
       <uri>model://sun</uri>
@@ -33,7 +41,7 @@
       <!-- Give the base link a unique name -->
       <link name="base">
         <!-- Offset the base by half the lenght of the cylinder -->
-        <pose>0 0 0.029335 0 0 0</pose>
+        <!-- <pose>0 0 0.029335 0 0 0</pose> -->
         <!-- <pose>0 0 0.5 0 0 0</pose> -->
         <!-- <pose>0 0 1.0 0 0 0</pose> -->
         <inertial>
@@ -75,6 +83,13 @@
           </material>
         </visual>
       </link>
+
+      <joint name="x_joint" type="prismatic">
+        <parent link="world"/>
+        <child link="base"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="1 0 0"/>
+      </joint>
 
       <!-- Give the base link a unique name -->
       <link name="top">

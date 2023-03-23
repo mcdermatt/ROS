@@ -69,7 +69,7 @@ class CloudMaker():
 
 		self.rotation_angle_noise_scale = np.deg2rad(0.5)
 
-		r = 1000
+		r = 1_000
 		self.rate = rospy.Rate(r)
 
 	def init_scan(self):
@@ -180,6 +180,7 @@ class CloudMaker():
 			self.dist_since_last_frame = 0
 			self.last_rot = self.velodyne_euls_base[2] #test
 
+			# print(self.count) #for debug
 			self.init_scan()
 
 		else:

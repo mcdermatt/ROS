@@ -117,7 +117,8 @@ class DistortionCorrector:
 		#get total overlap in rotation between LIDAR and base frames (since both are rotating w.r.t. world Z)
 		# point of intersection = (t_intersection) * (angular velocity base)
 		#						= ((n * T_a * T_b) / (T_a + T_b)) * omega_base 
-		total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(-vel[-1] + self.lidar_cmd_vel))
+		# total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(-vel[-1] + self.lidar_cmd_vel)) #was this
+		total_rot = -2*np.pi*np.sin(vel[-1]/(-vel[-1] + self.lidar_cmd_vel)) #actually should be this!
 		#TODO: add width of buffer used to trigger new rotation to this value  
 		total_rot += self.buffer_width
 		print("total_rot:", total_rot)

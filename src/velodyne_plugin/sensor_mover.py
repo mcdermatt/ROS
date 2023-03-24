@@ -62,8 +62,8 @@ class SensorMover():
     self.sensor_mover_pub = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size = 1)
     # self.sensor_mover_pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size = 1) #was this
     self.twist_pub = rospy.Publisher('/velodyne_base_vel_setpoint', Twist, queue_size = 1) #was this
-    # self.pub_rate = 1000 # Hz #need for older version
-    self.pub_rate = 100 #new version
+    self.pub_rate = 1000 # Hz #need for older version
+    # self.pub_rate = 10 #test
     self.rate = rospy.Rate(self.pub_rate) 
     self.reset()
 
@@ -87,7 +87,7 @@ class SensorMover():
     self.Twist_command.linear.x =  4.0
     self.Twist_command.linear.y = 1.0
     # self.Twist_command.linear.z = 0.
-    # self.Twist_command.angular.z = -0.5
+    self.Twist_command.angular.z = -1.0
 
   def main_new(self):
 
@@ -251,7 +251,7 @@ class SensorMover():
       self.lidar_state.pose.position.x += (self.Twist_command.linear.x / self.pub_rate)
       self.lidar_state.pose.position.y += (self.Twist_command.linear.y / self.pub_rate)
       self.lidar_state.pose.position.z += (self.Twist_command.linear.z / self.pub_rate)
-
+      # print("\n posx", self.lidar_state.pose.position.x)
 
       #get current pose
       curr_pose_quat = [self.lidar_state.pose.orientation.x,
@@ -261,19 +261,19 @@ class SensorMover():
       #convert to euler angles to linearize
       curr_pose_eul = R.from_quat(curr_pose_quat).as_euler('xyz')
 
-      curr_pose_eul[0] += self.Twist_command.angular.x / (self.pub_rate * 1.)
-      curr_pose_eul[1] += self.Twist_command.angular.y / (self.pub_rate * 1.)
-      # curr_pose_eul[2] += self.Twist_command.angular.z / (self.pub_rate * 1.)
-      curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
-      # print(curr_pose_eul)
+      curr_pose_eul[0] += self.Twist_command.angular.x / self.pub_rate
+      curr_pose_eul[1] += self.Twist_command.angular.y / self.pub_rate
+      curr_pose_eul[2] += self.Twist_command.angular.z / self.pub_rate
+      # curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
+      # print("curr_pose_eul",curr_pose_eul)
       #convert back to quat
       new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()
-      # print(new_pose_quat)
       self.lidar_state.pose.orientation.x = new_pose_quat[0]
       self.lidar_state.pose.orientation.y = new_pose_quat[1]
       self.lidar_state.pose.orientation.z = new_pose_quat[2]
       self.lidar_state.pose.orientation.w = new_pose_quat[3]
 
+      # print("quats:",self.lidar_state.pose.orientation)
 
       self.sensor_mover_pub.publish(self.lidar_state)
       self.twist_pub.publish(self.Twist_command)

@@ -56,14 +56,15 @@ class DistortionCorrector:
 		
 		#how much of scan is "lost" while point cloud is saved in </cloudmaker>
 		#calculate this from cloudmaker script
-		self.buffer_width = np.deg2rad(2.5) #works(ish)
-		# self.buffer_width = 0
+		# self.buffer_width = np.deg2rad(2.5) #works(ish)
+		self.buffer_width = 0
 
 		#init for debug
 		self.rotation_at_last_keyframe = 0
 		self.rotation_at_new_keyframe = 1
 
 		self.last_xpos = 0
+		self.last_theta = 0
 
 	def on_point_cloud(self, scan):
 		"""callback function for when node recieves raw point cloud"""
@@ -84,8 +85,10 @@ class DistortionCorrector:
 
 		# DEBUG: see how far base of LIDAR unit has actually moved during the frame
 		delta_x = self.current_xpos - self.last_xpos
-		print("\n measured delta x:", delta_x)
+		delta_theta = self.current_theta - self.last_theta
+		print("\n measured delta x:", delta_x, "\n measured delta theta:", delta_theta)
 		self.last_xpos =  self.current_xpos
+		self.last_theta = self.current_theta
 
 		# need to hold on to linear velocity estimate and sensor body frame poses
 		#		at the exact time point cloud data comes in- don't change these values
@@ -108,7 +111,7 @@ class DistortionCorrector:
 		self.pc_spherical = self.c2s(self.pc_xyz).numpy()
 
 		#Because of body frame yaw rotation, we're not always doing a full roation - we need to "uncurl" initial point cloud
-		# (not baked in to motion profile)
+		# (this is NOT baked in to motion profile)
 		self.pc_spherical = self.pc_spherical[np.argsort(self.pc_spherical[:,1])] #sort by azim angle
 
 		#get total overlap in rotation between LIDAR and base frames (since both are rotating w.r.t. world Z)
@@ -120,22 +123,16 @@ class DistortionCorrector:
 
 		#scale linearly starting at theta = 0
 		self.pc_spherical[:,1] = ((self.pc_spherical[:,1]) % (2*np.pi))*((2*np.pi - total_rot)/(2*np.pi)) + total_rot #works
-		# self.pc_spherical[:,1] = ((self.pc_spherical[:,1]) % (2*np.pi))*((2*np.pi - total_rot)/(2*np.pi)) #test
 
-		#sort by azim angle AGAIN- some points move past origin after stretching
-		# print("\n before:", self.pc_spherical[::500,1])
+		#sort by azim angle AGAIN- some points move past origin in the "uncurling" process
 		self.pc_spherical = self.pc_spherical[np.argsort(self.pc_spherical[:,1])] 
 
 		#reorient
-		# print("\n before:", self.pc_spherical[::500,1])
 		# self.pc_spherical[:,1] = ((self.pc_spherical[:,1] + np.pi) % np.pi) - np.pi #DEBUG: why is this suddenly causing problems
 		self.pc_spherical[:,1] = ((self.pc_spherical[:,1] + np.pi) % (2*np.pi)) - np.pi
-		# print("\n after:",self.pc_spherical[::500,1])
-
-		#publish as is
 		undistorted_pc = self.s2c(self.pc_spherical).numpy() #convert back to xyz
 
-		#TODO: align scan with linearized velocity prescribed in <motion_profile>
+		#align scan with linearized velocity prescribed in <motion_profile>
 		rot_angs = base_rot_euls #was this
 		# rot_angs = np.array(base_rot_euls) + np.array([0, 0, self.buffer_width]) #test
 		# print("\n base rotation euler angles:", rot_angs)
@@ -164,11 +161,12 @@ class DistortionCorrector:
 		rectified_vel[0,:3] = rectified_vel[0,:3] @ rot_vec
 		T = (2*np.pi)/(-vel[-1] + self.lidar_cmd_vel) #time to complete 1 scan #was this
 		rectified_vel = rectified_vel * T
+		# rectified_vel = rectified_vel / T #idk
 		print("rectified_vel:", rectified_vel)
 		print("T:", T)
 		#DEBUG: this is a bad way of doing it ... what happens if most of the points are on the left half of the scene??
-		part2 = np.linspace(0.5*T, 1.0*T, len(self.pc_xyz)//2)[:,None]
-		part1 = np.linspace(0*T, 0.5*T, len(self.pc_xyz) - len(self.pc_xyz)//2)[:,None]
+		part2 = np.linspace(0.5, 1.0, len(self.pc_xyz)//2)[:,None]
+		part1 = np.linspace(0, 0.5, len(self.pc_xyz) - len(self.pc_xyz)//2)[:,None]
 		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
 		#requres re-orienting point clouds
 		# motion_profile = np.linspace(0,1, len(self.pc_xyz))[:,None] @ rectified_vel  
@@ -233,8 +231,8 @@ class DistortionCorrector:
 
 	def on_linear_vel_estimate(self, t):
 		"""callback func for when node recieves linear velocity estimate from SensorMover"""
-		vel_pub_rate = 1000 # THIS DEPENDS ON LIDAR SAMPLING FREQUENCY (i.e. 1Hz for testing)
-		# vel_pub_rate = 1 #for new main loop in </sensor_mover>
+		# vel_pub_rate = 1000 # THIS DEPENDS ON LIDAR SAMPLING FREQUENCY (i.e. 1Hz for testing)
+		vel_pub_rate = 1 #for new main loop in </sensor_mover>
 		self.linear_vel_estimate = np.array([t.linear.x, t.linear.y, t.linear.z,
 											t.angular.x, t.angular.y, t.angular.z]) * vel_pub_rate
 		# print(self.linear_vel_estimate)
@@ -254,6 +252,7 @@ class DistortionCorrector:
 		# print(self.current_xpos)
 		self.current_xvel = link_states.twist[1].linear.x
 		# print(self.current_xvel)
+		self.current_theta = link_states.pose[1].orientation.z
 
 	def on_lidar_vel_cmd(self, cmd_vel):
 		"""cb to get rotational velocity commanded of LIDAR unit -> need this to properly uncurl the scan"""

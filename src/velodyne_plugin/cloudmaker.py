@@ -189,7 +189,7 @@ class CloudMaker():
 			# 	print("last:", self.last_rot)
 			#update incomplete point cloud
 			# self.dist_since_last_frame += np.abs(self.velodyne_euls_top[2] - self.last_rot) #issues with crossing 0
-			self.dist_since_last_frame += np.abs((self.velodyne_euls_top[2] - self.last_rot)) % (6.28) #bug here...
+			self.dist_since_last_frame += np.abs((self.velodyne_euls_top[2] - self.last_rot)) % (2*np.pi) #bug here...
 			# print(self.dist_since_last_frame)
 			self.last_rot = self.velodyne_euls_top[2]
 			self.count += 1

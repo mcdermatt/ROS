@@ -7,7 +7,8 @@ from rospy.numpy_msg import numpy_msg
 from rospy_tutorials.msg import Floats
 # from gazebo_msgs.msg import LinkState
 from gazebo_msgs.msg import ModelState
-from gazebo_msgs.srv import SetLinkState
+from gazebo_msgs.msg import LinkState
+# from gazebo_msgs.srv import SetLinkState
 import sensor_msgs
 from sensor_msgs.msg import LaserScan
 from sensor_msgs import point_cloud2
@@ -58,18 +59,20 @@ class SensorMover():
 
     rospy.init_node('sensormover', anonymous=False)
 
-    # self.sensor_mover_pub = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size = 1)
-    self.sensor_mover_pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size = 1)
+    self.sensor_mover_pub = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size = 1)
+    # self.sensor_mover_pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size = 1) #was this
     self.twist_pub = rospy.Publisher('/velodyne_base_vel_setpoint', Twist, queue_size = 1) #was this
     # self.pub_rate = 1000 # Hz #need for older version
-    self.pub_rate = 100 #debug
+    self.pub_rate = 100 #new version
     self.rate = rospy.Rate(self.pub_rate) 
     self.reset()
 
   def reset(self):
     print("RESET")
-    self.lidar_state = ModelState()
-    self.lidar_state.model_name = 'my_velodyne'
+    # self.lidar_state = ModelState()
+    # self.lidar_state.model_name = 'my_velodyne'
+    self.lidar_state = LinkState()
+    self.lidar_state.link_name = 'base'
     # set lidar height to that of KITTI
     # (and so we don't get weird collision effects with ground plane)
     self.lidar_state.pose.position.z = 1.72 
@@ -81,9 +84,10 @@ class SensorMover():
 
     #TEST
     self.Twist_command = Twist()
-    self.Twist_command.linear.x = 4.0
+    self.Twist_command.linear.x =  4.0
     self.Twist_command.linear.y = 1.0
-    self.Twist_command.linear.z = 0.
+    # self.Twist_command.linear.z = 0.
+    # self.Twist_command.angular.z = -0.5
 
   def main_new(self):
 
@@ -123,8 +127,6 @@ class SensorMover():
 
 
       #older version ----------------------------------------------------
-      self.lidar_state.model_name = 'my_velodyne'
-
       # #simple linear motion ---------------------------------------------
       # self.lidar_state.twist.linear.x  = 0.003
       # self.lidar_state.twist.linear.y  = 0.
@@ -187,25 +189,69 @@ class SensorMover():
 
       # #------------------------------------------------------------------
 
-      #newer version -----------------------------------------------
-      # self.dv_x = np.random.randn()
-      # self.dv_y = np.random.randn()
-      self.lidar_state.twist.linear.x  = 4. #0.001 #*self.dv_x
-      self.lidar_state.twist.linear.y  = 1. #0.001 #0.04*self.dv_y
-      self.lidar_state.twist.linear.z  = 0.
-      self.lidar_state.twist.angular.x = 0.0
-      self.lidar_state.twist.angular.y = 0.
+      # #newer version -----------------------------------------------
+      # # self.dv_x = np.random.randn()
+      # # self.dv_y = np.random.randn()
+      # # self.lidar_state.twist.linear.x  = 4. #0.001 #*self.dv_x
+      # # self.lidar_state.twist.linear.y  = 1. #0.001 #0.04*self.dv_y
+      # self.lidar_state.twist.linear.z  = 0.
+      # self.lidar_state.twist.angular.x = 0.0
+      # self.lidar_state.twist.angular.y = 0.
       # self.lidar_state.twist.angular.z = -0.25 #debug
-      # self.lidar_state.twist.angular.z = -0.00125 #fast yaw
-      # self.lidar_state.twist.angular.z = -0.00025 #slower yaw
-      # self.lidar_state.twist.angular.z = -2e-5 #realistic KITTI yaw
+      # # self.lidar_state.twist.angular.z = -0.00125 #fast yaw
+      # # self.lidar_state.twist.angular.z = -0.00025 #slower yaw
+      # # self.lidar_state.twist.angular.z = -2e-5 #realistic KITTI yaw
 
-      # TODO: fix small differences in timing using rospy rate??
-      # print(self.rate)
+      # # TODO: fix small differences in timing using rospy rate??
+      # # DEBUG: I thik the 1.1 scale factor is required because of weird limitations in gazebo update rate(?)
+      # self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x / (self.pub_rate * 1.)
+      # self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y / (self.pub_rate * 1.)
+      # self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z / (self.pub_rate * 1.)
 
-      self.lidar_state.pose.position.x += self.lidar_state.twist.linear.x / (self.pub_rate * 1.1)
-      self.lidar_state.pose.position.y += self.lidar_state.twist.linear.y / (self.pub_rate * 1.1)
-      self.lidar_state.pose.position.z += self.lidar_state.twist.linear.z / (self.pub_rate * 1.1)
+      # #get current pose
+      # curr_pose_quat = [self.lidar_state.pose.orientation.x,
+      #                   self.lidar_state.pose.orientation.y,
+      #                   self.lidar_state.pose.orientation.z,
+      #                   self.lidar_state.pose.orientation.w]
+      # #convert to euler angles to linearize
+      # curr_pose_eul = R.from_quat(curr_pose_quat).as_euler('xyz')
+
+      # curr_pose_eul[0] += self.lidar_state.twist.angular.x / (self.pub_rate * 1.)
+      # curr_pose_eul[1] += self.lidar_state.twist.angular.y / (self.pub_rate * 1.)
+      # curr_pose_eul[2] += self.lidar_state.twist.angular.z / (self.pub_rate * 1.)
+      # # curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
+      # # print(curr_pose_eul)
+      # #convert back to quat
+      # new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()
+      # # print(new_pose_quat)
+      # self.lidar_state.pose.orientation.x = new_pose_quat[0]
+      # self.lidar_state.pose.orientation.y = new_pose_quat[1]
+      # self.lidar_state.pose.orientation.z = new_pose_quat[2]
+      # self.lidar_state.pose.orientation.w = new_pose_quat[3]
+      # # print(self.lidar_state.twist)
+      # self.count += 1
+
+      # #reset if we get too far from start pose
+      # if self.lidar_state.pose.position.x > 16:
+      #   # print(self.count) #constanly outputs the same value
+      #   self.reset()
+
+      # self.sensor_mover_pub.publish(self.lidar_state)
+      # self.twist_pub.publish(self.lidar_state.twist)
+
+      # # later = rospy.get_rostime()
+      # # print("later - now", later - now)
+
+      # #IMPORTANT: This is tied to simulation time (gazebo) NOT wall time
+      # self.rate.sleep()
+      # #------------------------------------------------------------------
+
+      #simplified method (for debug) ------------------------------------
+
+      self.lidar_state.pose.position.x += (self.Twist_command.linear.x / self.pub_rate)
+      self.lidar_state.pose.position.y += (self.Twist_command.linear.y / self.pub_rate)
+      self.lidar_state.pose.position.z += (self.Twist_command.linear.z / self.pub_rate)
+
 
       #get current pose
       curr_pose_quat = [self.lidar_state.pose.orientation.x,
@@ -215,10 +261,10 @@ class SensorMover():
       #convert to euler angles to linearize
       curr_pose_eul = R.from_quat(curr_pose_quat).as_euler('xyz')
 
-      curr_pose_eul[0] += self.lidar_state.twist.angular.x / (self.pub_rate * 1.1)
-      curr_pose_eul[1] += self.lidar_state.twist.angular.y / (self.pub_rate * 1.1)
-      curr_pose_eul[2] += self.lidar_state.twist.angular.z / (self.pub_rate * 1.1)
-      # curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
+      curr_pose_eul[0] += self.Twist_command.angular.x / (self.pub_rate * 1.)
+      curr_pose_eul[1] += self.Twist_command.angular.y / (self.pub_rate * 1.)
+      # curr_pose_eul[2] += self.Twist_command.angular.z / (self.pub_rate * 1.)
+      curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
       # print(curr_pose_eul)
       #convert back to quat
       new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()
@@ -227,42 +273,21 @@ class SensorMover():
       self.lidar_state.pose.orientation.y = new_pose_quat[1]
       self.lidar_state.pose.orientation.z = new_pose_quat[2]
       self.lidar_state.pose.orientation.w = new_pose_quat[3]
-      # print(self.lidar_state.twist)
-      self.count += 1
 
-      #reset if we get too far from start pose
-      if self.lidar_state.pose.position.x > 16:
-        # print(self.count) #constanly outputs the same value
-        self.reset()
 
       self.sensor_mover_pub.publish(self.lidar_state)
-      self.twist_pub.publish(self.lidar_state.twist)
+      self.twist_pub.publish(self.Twist_command)
+
+      if self.lidar_state.pose.position.x > 16:
+        self.reset()
 
       # later = rospy.get_rostime()
       # print("later - now", later - now)
 
-      #IMPORTANT: This is tied to simulation time (gazebo) NOT wall time
+
+
       self.rate.sleep()
       #------------------------------------------------------------------
-
-      # #simplified method (for debug) ------------------------------------
-
-      # self.lidar_state.pose.position.x += (self.Twist_command.linear.x / self.pub_rate)
-      # self.lidar_state.pose.position.y += (self.Twist_command.linear.y / self.pub_rate)
-      # self.lidar_state.pose.position.z += (self.Twist_command.linear.z / self.pub_rate)
-
-      # self.sensor_mover_pub.publish(self.lidar_state)
-      # self.twist_pub.publish(self.Twist_command)
-
-      # if self.lidar_state.pose.position.x > 16:
-      #   self.reset()
-
-      # # later = rospy.get_rostime()
-      # # print("later - now", later - now)
-
-
-      # self.rate.sleep()
-      # #------------------------------------------------------------------
 
 
 

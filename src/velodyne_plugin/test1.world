@@ -23,6 +23,7 @@
         <falloff>0</falloff>
       </spot>
     </light>
+
     <model name='ground_plane'>
       <static>1</static>
       <link name='link'>
@@ -71,6 +72,7 @@
         <kinematic>0</kinematic>
       </link>
     </model>
+
     <model name='my_velodyne'>
       <pose>0 0 0 0 -0 0</pose>
       <link name='base'>
@@ -119,6 +121,49 @@
             <ambient>0.25 0.25 0.25 1</ambient>
           </material>
         </visual>
+
+        <visual name='base_visual_x'>
+          <pose>0.5 0 0 0 1.57 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.02</radius>
+              <length>1.</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.8 0.25 0.25 1</ambient>
+          </material>
+        </visual>
+
+        <visual name='base_visual_y'>
+          <pose>0 0.5 0 1.57 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.02</radius>
+              <length>1.</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.25 0.8 0.25 1</ambient>
+          </material>
+        </visual>
+
+        <visual name='base_visual_z'>
+          <pose>0 0 0.5 0 0 1.57</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.02</radius>
+              <length>1.</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.25 0.25 0.8 1</ambient>
+          </material>
+        </visual>
+
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
         <self_collide>0</self_collide>
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
@@ -204,7 +249,8 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <link name='xarrow'>
+
+<!--       <link name='xarrow'>
         <pose>0.5 0 0 3.14159 1.57079 3.14159</pose>
         <visual name='xarrow_visual'>
           <geometry>
@@ -291,6 +337,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+
       <joint name='xarrow_joint' type='fixed'>
         <parent>base</parent>
         <child>x_arrow</child>
@@ -298,11 +345,14 @@
       <joint name='yarrow_joint' type='fixed'>
         <parent>base</parent>
         <child>y_arrow</child>
+        <pose>0 0 0 0 0 0</pose>
       </joint>
       <joint name='zarrow_joint' type='fixed'>
         <parent>base</parent>
         <child>z_arrow</child>
+        <pose>0 0 0 0 0 0</pose>
       </joint>
+ -->
       <joint name='joint' type='revolute'>
         <pose>0 0 -0.036785 0 -0 0</pose>
         <parent>base</parent>
@@ -319,8 +369,11 @@
           </dynamics>
         </axis>
       </joint>
+
       <plugin name='velodyne_control' filename='./libvelodyne_plugin.so'/>
     </model>
+
+
     <model name='apartment'>
       <static>1</static>
       <link name='link'>

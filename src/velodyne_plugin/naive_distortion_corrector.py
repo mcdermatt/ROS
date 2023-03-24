@@ -57,7 +57,7 @@ class DistortionCorrector:
 		#how much of scan is "lost" while point cloud is saved in </cloudmaker>
 		#calculate this from cloudmaker script
 		# self.buffer_width = np.deg2rad(2.5) #works(ish)
-		self.buffer_width = 0
+		self.buffer_width = np.deg2rad(0.5)
 
 		#init for debug
 		self.rotation_at_last_keyframe = 0
@@ -120,6 +120,7 @@ class DistortionCorrector:
 		total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(-vel[-1] + self.lidar_cmd_vel))
 		#TODO: add width of buffer used to trigger new rotation to this value  
 		total_rot += self.buffer_width
+		print("total_rot:", total_rot)
 
 		#scale linearly starting at theta = 0
 		self.pc_spherical[:,1] = ((self.pc_spherical[:,1]) % (2*np.pi))*((2*np.pi - total_rot)/(2*np.pi)) + total_rot #works

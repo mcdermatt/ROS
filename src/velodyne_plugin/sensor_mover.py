@@ -84,7 +84,7 @@ class SensorMover():
 
     #Set linear velocity of sensor
     self.Twist_command = Twist()
-    self.Twist_command.linear.x =  4.0
+    self.Twist_command.linear.x =  1.5
     # self.Twist_command.linear.y = 1.0
     # self.Twist_command.linear.z = 0.5
     # self.Twist_command.angular.x = 0.
@@ -123,7 +123,7 @@ class SensorMover():
       self.sensor_mover_pub.publish(self.lidar_state)
       self.twist_pub.publish(self.Twist_command)
 
-      if self.lidar_state.pose.position.x > 16:
+      if self.lidar_state.pose.position.x > 100:
         self.reset()
 
       self.rate.sleep()
@@ -178,5 +178,5 @@ class SensorMover():
 
 if __name__ == '__main__':
   sm = SensorMover()
-  # sm.set_constant_velocity()
-  sm.set_acceleration()
+  sm.set_constant_velocity()
+  # sm.set_acceleration()

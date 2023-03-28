@@ -45,29 +45,39 @@ class DistortionCorrector:
 		rospy.init_node('linear_distortion_corrector', anonymous=False)
 
 		self.pcSub = rospy.Subscriber(raw_pc_topic, PointCloud2, self.on_point_cloud, queue_size = 1)
-		self.vel_estimate_sub = rospy.Subscriber('/velodyne_base_vel_setpoint', Twist, self.on_linear_vel_estimate, queue_size = 1)
+		self.vel_estimate_sub = rospy.Subscriber('/velodyne_base_vel_setpoint', Twist, self.base_vel_setpoint, queue_size = 10)
 		self.lidar_rotation_rate_sub = rospy.Subscriber('/my_velodyne/vel_cmd', Float32, self.on_lidar_vel_cmd, queue_size = 1)
 		self.link_state_sub = rospy.Subscriber('/gazebo/link_states', LinkStates, self.on_link_states, queue_size = 1) #buff_size = 10)
 		self.pcPub = rospy.Publisher('/rectified_point_cloud', PointCloud2, queue_size = 1)
 		r = 1000
 		self.rate = rospy.Rate(r)
+		
+		self.frame_idx = 0
 
 		self.linear_vel_estimate = np.zeros([6])
-		
+		self.last_xpos = 0
+		self.last_theta = 0
+
 		#how much of scan is "lost" while point cloud is saved in </cloudmaker>
 		#calculate this from cloudmaker script
 		# self.buffer_width = np.deg2rad(2.5) #works(ish)
 		self.buffer_width = np.deg2rad(0.5)
 
-		#init for debug
-		self.rotation_at_last_keyframe = 0
-		self.rotation_at_new_keyframe = 1
+		self.vel_history_for_this_frame = np.zeros([0,6])
 
-		self.last_xpos = 0
-		self.last_theta = 0
+		#init for debug
+		# self.rotation_at_last_keyframe = 0
+		# self.rotation_at_new_keyframe = 1
 
 	def on_point_cloud(self, scan):
 		"""callback function for when node recieves raw point cloud"""
+
+		#ONLY NEED TO REPORT VELOCITY SINCE STARTING POSE IS ZEROS 
+		root_dir = "/home/derm/ASAR/v3/point_cloud_rectification/sample_data/"
+		trajectory_name = "test1/"
+		fn_vel_cmd = root_dir + trajectory_name + "base_vel_" + str(self.frame_idx)
+		np.save(fn_vel_cmd, self.vel_history_for_this_frame)
+		self.vel_history_for_this_frame = np.zeros([0,6])
 
 		# #DEBUG: manually calculate how much base of LIDAR has moved between keyframes
 		# self.rotation_at_new_keyframe = self.velodyne_euls_base[2]
@@ -117,7 +127,6 @@ class DistortionCorrector:
 		#get total overlap in rotation between LIDAR and base frames (since both are rotating w.r.t. world Z)
 		# point of intersection = (t_intersection) * (angular velocity base)
 		#						= ((n * T_a * T_b) / (T_a + T_b)) * omega_base 
-		# total_rot = -np.pi*np.sin(vel[-1]*(2*np.pi)/(-vel[-1] + self.lidar_cmd_vel)) #was this
 		total_rot = -2*np.pi*np.sin(vel[-1]/(-vel[-1] + self.lidar_cmd_vel)) #actually should be this!
 		#TODO: add width of buffer used to trigger new rotation to this value  
 		total_rot += self.buffer_width
@@ -130,30 +139,12 @@ class DistortionCorrector:
 		self.pc_spherical = self.pc_spherical[np.argsort(self.pc_spherical[:,1])] 
 
 		#reorient
-		# self.pc_spherical[:,1] = ((self.pc_spherical[:,1] + np.pi) % np.pi) - np.pi #DEBUG: why is this suddenly causing problems
 		self.pc_spherical[:,1] = ((self.pc_spherical[:,1] + np.pi) % (2*np.pi)) - np.pi
 		undistorted_pc = self.s2c(self.pc_spherical).numpy() #convert back to xyz
 
 		#align scan with linearized velocity prescribed in <motion_profile>
 		rot_angs = base_rot_euls #was this
-		# rot_angs = np.array(base_rot_euls) + np.array([0, 0, self.buffer_width]) #test
-		# print("\n base rotation euler angles:", rot_angs)
-		# print("total_rot", total_rot)
 		rot_vec = R.from_euler('xyz', rot_angs).as_dcm()
-		# print(rot_vec)
-		# undistorted_pc = undistorted_pc @ rot_vec.T
-
-		# #manual linear velocity model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		# #sort by azim angle
-		# print(self.pc_spherical[:,1]) #look at theta angles
-		# self.pc_xyz = self.pc_xyz[np.argsort(self.pc_spherical[:,1])]
-		# rectified_vel  = vel[None,:]
-		# rectified_vel[0,-1] = 0 #zero out yaw since we already compensated for it??? 
-		# print("rectified_vel", rectified_vel)
-		# #scale linearly starting at theta = 0
-		# self.pc_xyz[:,0] += rectified_vel[0,0]*np.linspace(0,1,len(self.pc_xyz))
-		# undistorted_pc = self.pc_xyz
-		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# #Linear velocity model -> assume velocity distortion is directly proportional to each point's theta (yaw) angle 
 		self.pc_xyz = undistorted_pc
@@ -162,16 +153,13 @@ class DistortionCorrector:
 		#transform velocity from world frame to lidar base frame
 		rectified_vel[0,:3] = rectified_vel[0,:3] @ rot_vec
 		T = (2*np.pi)/(-vel[-1] + self.lidar_cmd_vel) #time to complete 1 scan #was this
-		rectified_vel = rectified_vel * T
-		# rectified_vel = rectified_vel / T #idk
-		print("rectified_vel:", rectified_vel)
 		print("T:", T)
-		#DEBUG: this is a bad way of doing it ... what happens if most of the points are on the left half of the scene??
+		rectified_vel = rectified_vel * T
+		print("rectified_vel:", rectified_vel)
+		#TODO: this is a bad way of doing it ... what happens if most of the points are on the left half of the scene??
 		part2 = np.linspace(0.5, 1.0, len(self.pc_xyz)//2)[:,None]
 		part1 = np.linspace(0, 0.5, len(self.pc_xyz) - len(self.pc_xyz)//2)[:,None]
 		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
-		#requres re-orienting point clouds
-		# motion_profile = np.linspace(0,1, len(self.pc_xyz))[:,None] @ rectified_vel  
 		undistorted_pc = self.remove_motion_distortion(self.pc_xyz, motion_profile)
 
 		#debug: add points at theta = 0------------------------------------
@@ -193,6 +181,16 @@ class DistortionCorrector:
 		#------------------------------------------------------------------
 
 		self.pcPub.publish(point_cloud(undistorted_pc, 'map'))
+
+		root_dir = "/home/derm/ASAR/v3/point_cloud_rectification/sample_data/"
+		trajectory_name = "test1/"
+
+		fn_raw = root_dir + trajectory_name + "raw_frame_" + str(self.frame_idx)
+		fn_rectified = root_dir + trajectory_name + "rectified_linear_frame_" + str(self.frame_idx) 
+
+		np.save(fn_raw, np.array(xyz))
+		np.save(fn_rectified, undistorted_pc)
+		self.frame_idx += 1
 
 	def remove_motion_distortion(self, points, motion_profile):
 		"""
@@ -231,14 +229,16 @@ class DistortionCorrector:
 		return corrected_points
 
 
-	def on_linear_vel_estimate(self, t):
+	def base_vel_setpoint(self, t):
 		"""callback func for when node recieves linear velocity estimate from SensorMover"""
 		# vel_pub_rate = 1000 # THIS DEPENDS ON LIDAR SAMPLING FREQUENCY (i.e. 1Hz for testing)
 		vel_pub_rate = 1 #for new main loop in </sensor_mover>
 		self.linear_vel_estimate = np.array([t.linear.x, t.linear.y, t.linear.z,
 											t.angular.x, t.angular.y, t.angular.z]) * vel_pub_rate
 		# print(self.linear_vel_estimate)
-
+		self.vel_history_for_this_frame = np.append(self.vel_history_for_this_frame,
+													self.linear_vel_estimate[None,:] / vel_pub_rate, axis = 0)
+		# print(np.shape(self.vel_history_for_this_frame))
 
 	def on_link_states(self, link_states):
 		"""callback for getting link frames out of Gazebo"""

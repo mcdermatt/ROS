@@ -74,6 +74,47 @@
             <!-- <script>Gazebo/WoodPallet</script> -->
           </material>
         </visual>
+
+
+        <visual name='base_visual_x'>
+          <pose>0.5 0 0 0 1.57 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.02</radius>
+              <length>1.</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.8 0.25 0.25 1</ambient>
+          </material>
+        </visual>
+
+        <visual name='base_visual_y'>
+          <pose>0 0.5 0 1.57 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.02</radius>
+              <length>1.</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.25 0.8 0.25 1</ambient>
+          </material>
+        </visual>
+
+        <visual name='base_visual_z'>
+          <pose>0 0 0.5 0 0 1.57</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.02</radius>
+              <length>1.</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.25 0.25 0.8 1</ambient>
+          </material>
+        </visual>
+
       </link>
 
       <!-- Give the base link a unique name -->
@@ -182,18 +223,14 @@
 
       </link>
 
-      <link name="xarrow">
+ <!--      <link name="xarrow">
         <pose>0.5 0 0 0 1.570796326 0</pose>
-        <!-- <pose>0.5 0 0 0 0 0 </pose> -->
         <visual name="xarrow_visual">
           <geometry>
             <cylinder>
               <radius>.015</radius>
               <length>1.0</length>
             </cylinder>
-            <!-- <box>
-              <size> 1 0.1 0.1</size>
-            </box> -->
           </geometry>
           <material>
             <ambient>0.8 0.2 0.2 1 </ambient>
@@ -230,7 +267,7 @@
           </material>
         </visual>
       </link>
-
+ -->
     <joint type="fixed" name = "xarrow_joint">
       <parent>base</parent>
       <child>x_arrow</child>

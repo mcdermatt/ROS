@@ -215,6 +215,9 @@
         <sensor name='sensor' type='ray'>
           <pose>0 0 -0.004645 1.5707 -0 0</pose>
           <visualize>1</visualize>
+          <!-- supposed to be this -->
+          <!-- <update_rate>45000</update_rate> -->
+          <!-- slow down for testing -->
           <update_rate>45000</update_rate>
           <ray>
             <noise>
@@ -225,11 +228,11 @@
             <scan>
               <horizontal>
                 <!-- simplify for faster performance -->
-                <samples>16</samples>
-                <resolution>4</resolution>
+                <!-- <samples>16</samples> -->
+                <!-- <resolution>4</resolution> -->
                 <!-- full resolution -->
-                <!-- <samples>64</samples> -->
-                <!-- <resolution>1</resolution> -->
+                <samples>64</samples>
+                <resolution>1</resolution>
                 <min_angle>-0.535292</min_angle>
                 <max_angle>0.186227</max_angle>
               </horizontal>

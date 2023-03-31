@@ -84,7 +84,9 @@ class SensorMover():
 
     #Set linear velocity of sensor
     self.Twist_command = Twist()
-    self.Twist_command.linear.x =  1.5
+    # self.Twist_command.linear.x =  1.5 # 33 mph
+    # self.Twist_command.linear.x =  1.0 # 22 mph
+    self.Twist_command.linear.x =  0.44 # 10 mph
     # self.Twist_command.linear.y = 1.0
     # self.Twist_command.linear.z = 0.5
     # self.Twist_command.angular.x = 0.

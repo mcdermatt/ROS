@@ -51,9 +51,10 @@ class DistortionCorrector:
 		self.pcPub = rospy.Publisher('/rectified_point_cloud', PointCloud2, queue_size = 1)
 		r = 1000
 		self.rate = rospy.Rate(r)
-		
-		self.frame_idx = 0
+		self.save_data = False
+		# self.save_data = True
 
+		self.frame_idx = 0
 		self.linear_vel_estimate = np.zeros([6])
 		self.last_xpos = 0
 		self.last_theta = 0
@@ -61,7 +62,8 @@ class DistortionCorrector:
 		#how much of scan is "lost" while point cloud is saved in </cloudmaker>
 		#calculate this from cloudmaker script
 		# self.buffer_width = np.deg2rad(2.5) #works(ish)
-		self.buffer_width = np.deg2rad(0.5)
+		# self.buffer_width = np.deg2rad(0.5)
+		self.buffer_width = 0
 
 		self.vel_history_for_this_frame = np.zeros([0,6])
 
@@ -72,12 +74,13 @@ class DistortionCorrector:
 	def on_point_cloud(self, scan):
 		"""callback function for when node recieves raw point cloud"""
 
-		#ONLY NEED TO REPORT VELOCITY SINCE STARTING POSE IS ZEROS 
-		root_dir = "/home/derm/ASAR/v3/point_cloud_rectification/sample_data/"
-		trajectory_name = "test1/"
-		fn_vel_cmd = root_dir + trajectory_name + "base_vel_" + str(self.frame_idx)
-		np.save(fn_vel_cmd, self.vel_history_for_this_frame)
-		self.vel_history_for_this_frame = np.zeros([0,6])
+		if self.save_data: 
+			print("\n recording frame_idx:", self.frame_idx)
+			root_dir = "/home/derm/ASAR/v3/point_cloud_rectification/sample_data/"
+			trajectory_name = "test1/"
+			fn_vel_cmd = root_dir + trajectory_name + "base_vel_" + str(self.frame_idx)
+			np.save(fn_vel_cmd, self.vel_history_for_this_frame)
+			self.vel_history_for_this_frame = np.zeros([0,6])
 
 		# #DEBUG: manually calculate how much base of LIDAR has moved between keyframes
 		# self.rotation_at_new_keyframe = self.velodyne_euls_base[2]
@@ -96,7 +99,7 @@ class DistortionCorrector:
 		# DEBUG: see how far base of LIDAR unit has actually moved during the frame
 		delta_x = self.current_xpos - self.last_xpos
 		delta_theta = self.current_theta - self.last_theta
-		print("\n measured delta x:", delta_x, "\n measured delta theta:", delta_theta)
+		print("measured delta x:", delta_x, "\n measured delta theta:", delta_theta)
 		self.last_xpos =  self.current_xpos
 		self.last_theta = self.current_theta
 
@@ -182,15 +185,13 @@ class DistortionCorrector:
 
 		self.pcPub.publish(point_cloud(undistorted_pc, 'map'))
 
-		root_dir = "/home/derm/ASAR/v3/point_cloud_rectification/sample_data/"
-		trajectory_name = "test1/"
+		if self.save_data:
+			fn_raw = root_dir + trajectory_name + "raw_frame_" + str(self.frame_idx)
+			fn_rectified = root_dir + trajectory_name + "rectified_linear_frame_" + str(self.frame_idx) 
 
-		fn_raw = root_dir + trajectory_name + "raw_frame_" + str(self.frame_idx)
-		fn_rectified = root_dir + trajectory_name + "rectified_linear_frame_" + str(self.frame_idx) 
-
-		np.save(fn_raw, np.array(xyz))
-		np.save(fn_rectified, undistorted_pc)
-		self.frame_idx += 1
+			np.save(fn_raw, np.array(xyz))
+			np.save(fn_rectified, undistorted_pc)
+			self.frame_idx += 1
 
 	def remove_motion_distortion(self, points, motion_profile):
 		"""

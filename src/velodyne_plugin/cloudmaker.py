@@ -162,15 +162,16 @@ class CloudMaker():
 		# if ((self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published)   \
 		# 	or (self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published)) \
 		# 	and np.abs(self.velodyne_euls_top[2] - self.velodyne_euls_base[2]) < 0.1:
-		thresh = 0.0025
-		# thresh = 0.005
-		# thresh = 0.03 #debug
+		thresh = 0.001
+		# thresh = 0.0025
+		# thresh = 0.005 #debug
 		if np.abs(np.sin(self.velodyne_euls_base[2]) - np.sin(self.velodyne_euls_top[2])) < thresh \
 			and np.abs(np.cos(self.velodyne_euls_base[2]) - np.cos(self.velodyne_euls_top[2])) < thresh \
 			and self.dist_since_last_frame > 0.5: #make sure we didn't just save a scan
 			# print("\n publishing scan")
 			# print("base:",self.velodyne_euls_base[2]) #debug
 			# print("top:",self.velodyne_euls_top[2]) #debug
+			# print("base - top", self.velodyne_euls_base[2] - self.velodyne_euls_top[2] )
 			# print("last:", self.last_rot)
 
 			self.pcPub.publish(point_cloud(self.cloud_i, 'map')) #publish full point cloud
@@ -184,12 +185,9 @@ class CloudMaker():
 			self.init_scan()
 
 		else:
-			# if np.abs(self.velodyne_euls_top[2] - self.last_rot) > 0.1:
-			# 	print("\n  top:",self.velodyne_euls_top[2]) #debug
-			# 	print("last:", self.last_rot)
 			#update incomplete point cloud
 			# self.dist_since_last_frame += np.abs(self.velodyne_euls_top[2] - self.last_rot) #issues with crossing 0
-			self.dist_since_last_frame += np.abs((self.velodyne_euls_top[2] - self.last_rot)) % (2*np.pi) #bug here...
+			self.dist_since_last_frame += np.abs((self.velodyne_euls_top[2] - self.last_rot)) % (2*np.pi) #bug here...?
 			# print(self.dist_since_last_frame)
 			self.last_rot = self.velodyne_euls_top[2]
 			self.count += 1

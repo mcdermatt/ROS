@@ -62,14 +62,10 @@ class DistortionCorrector:
 		#how much of scan is "lost" while point cloud is saved in </cloudmaker>
 		#calculate this from cloudmaker script
 		# self.buffer_width = np.deg2rad(2.5) #works(ish)
-		# self.buffer_width = np.deg2rad(0.5)
+		# self.buffer_width = np.deg2rad(0.3)
 		self.buffer_width = 0
 
 		self.vel_history_for_this_frame = np.zeros([0,6])
-
-		#init for debug
-		# self.rotation_at_last_keyframe = 0
-		# self.rotation_at_new_keyframe = 1
 
 	def on_point_cloud(self, scan):
 		"""callback function for when node recieves raw point cloud"""
@@ -82,26 +78,13 @@ class DistortionCorrector:
 			np.save(fn_vel_cmd, self.vel_history_for_this_frame)
 			self.vel_history_for_this_frame = np.zeros([0,6])
 
-		# #DEBUG: manually calculate how much base of LIDAR has moved between keyframes
-		# self.rotation_at_new_keyframe = self.velodyne_euls_base[2]
-		# print("\n \n")
-		# print("rotation_at_new_keyframe", self.rotation_at_new_keyframe)
-		# print("rotation_at_last_keyframe", self.rotation_at_last_keyframe)
-		# self.rot_between_keyframes = -self.rotation_at_new_keyframe + self.rotation_at_last_keyframe
-		# print("rot between keyframes (from gazebo)", self.rot_between_keyframes)
-		# self.rotation_at_last_keyframe = self.rotation_at_new_keyframe
-
-		# print("rot between keyframes (analytic method)", total_rot)
-		# print("velocity of base", vel[-1])
-		# print("velocity of lidar sensor", self.lidar_cmd_vel)
-		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-		# DEBUG: see how far base of LIDAR unit has actually moved during the frame
-		delta_x = self.current_xpos - self.last_xpos
-		delta_theta = self.current_theta - self.last_theta
-		print("measured delta x:", delta_x, "\n measured delta theta:", delta_theta)
-		self.last_xpos =  self.current_xpos
-		self.last_theta = self.current_theta
+		# # DEBUG: see how far base of LIDAR unit has actually moved during the frame~~~~~~~~~
+		# delta_x = self.current_xpos - self.last_xpos
+		# delta_theta = self.current_theta - self.last_theta
+		# print("measured delta x:", delta_x, "\n measured delta theta:", delta_theta)
+		# self.last_xpos =  self.current_xpos
+		# self.last_theta = self.current_theta
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# need to hold on to linear velocity estimate and sensor body frame poses
 		#		at the exact time point cloud data comes in- don't change these values
@@ -109,6 +92,10 @@ class DistortionCorrector:
 		vel = self.linear_vel_estimate
 		period_base = (2*np.pi)/vel[-1]
 		base_rot_euls = self.velodyne_euls_base
+
+		#test
+		base_rot_quat = self.velodyne_quat_base #in scipy rot format, not actually quat (but is quat under the hood)
+		print("\n base_rot_quat", base_rot_quat.as_quat())
 
 		#convert cloud msg to np array
 		gen = point_cloud2.read_points(scan, skip_nans=True, field_names=("x", "y", "z"))
@@ -138,7 +125,7 @@ class DistortionCorrector:
 		#scale linearly starting at theta = 0
 		self.pc_spherical[:,1] = ((self.pc_spherical[:,1]) % (2*np.pi))*((2*np.pi - total_rot)/(2*np.pi)) + total_rot #works
 
-		#sort by azim angle AGAIN- some points move past origin in the "uncurling" process
+		#sort by azim angle again- some points will have moved past origin in the "uncurling" process
 		self.pc_spherical = self.pc_spherical[np.argsort(self.pc_spherical[:,1])] 
 
 		#reorient
@@ -146,20 +133,30 @@ class DistortionCorrector:
 		undistorted_pc = self.s2c(self.pc_spherical).numpy() #convert back to xyz
 
 		#align scan with linearized velocity prescribed in <motion_profile>
-		rot_angs = base_rot_euls #was this
-		rot_vec = R.from_euler('xyz', rot_angs).as_dcm()
+		# rot_vec = R.from_euler('xyz', base_rot_euls).as_dcm() #was this -> relies on converting to euls
+		rot_vec =  base_rot_quat.as_dcm() #keeps in scipy rot format as long as possible -> should prevent large angle errors
 
-		# #Linear velocity model -> assume velocity distortion is directly proportional to each point's theta (yaw) angle 
+		# #Linear velocity model -> assume velocity distortion is directly proportional to each point's theta/ yaw angle 
 		self.pc_xyz = undistorted_pc
 		rectified_vel  = -vel[None,:]
-		rectified_vel[0,-1] = 0 #zero out yaw since we already compensated for it??? 
-		#transform velocity from world frame to lidar base frame
-		rectified_vel[0,:3] = rectified_vel[0,:3] @ rot_vec
+		rectified_vel[0,-1] = 0 #zero out yaw since we already compensated for it
+		
+		#transform velocity from world frame to lidar base frame 
+		rectified_vel[0,:3] = rectified_vel[0,:3] @ rot_vec #fix translational components
+		print("rectified_vel (translation fixed):", rectified_vel)
+
+		# # don't think this is necessary...
+		# # fix rotational components of <rectified_vel> to align with world frame??? ----------------------
+		# rectified_vel_body_frame = R.from_euler('xyz', rectified_vel[0,3:])
+		# rectified_vel[0,3:] = (base_rot_quat * rectified_vel_body_frame).as_euler('xyz')
+		# print("rectified_vel (trans + rot fixed):", rectified_vel)
+		# #------------------------------------------------------------------------------------------------
+
 		T = (2*np.pi)/(-vel[-1] + self.lidar_cmd_vel) #time to complete 1 scan #was this
 		print("T:", T)
 		rectified_vel = rectified_vel * T
-		print("rectified_vel:", rectified_vel)
-		#TODO: this is a bad way of doing it ... what happens if most of the points are on the left half of the scene??
+		# print("rectified_vel:", rectified_vel)
+		#TODO: is this is a bad way of doing it? ... what happens if most of the points are on one half of the scene??
 		part2 = np.linspace(0.5, 1.0, len(self.pc_xyz)//2)[:,None]
 		part1 = np.linspace(0, 0.5, len(self.pc_xyz) - len(self.pc_xyz)//2)[:,None]
 		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
@@ -222,8 +219,9 @@ class DistortionCorrector:
 									  [0, 0, 1]]))
 			T.append(np.concatenate((np.concatenate((R, np.array([[tx], [ty], [tz]])), axis=1), np.array([[0, 0, 0, 1]])), axis=0))
 		
-		print(len(T))
-		print(len(points))
+		#should be the same size:
+		# print(len(T))
+		# print(len(points))
 		# Apply inverse of motion transformation to each point
 		corrected_points = np.zeros_like(points)
 		for i in range(len(points)):
@@ -253,8 +251,8 @@ class DistortionCorrector:
 
 		vq_base = link_states.pose[1].orientation
 		velodyne_quat_base = [vq_base.x, vq_base.y, vq_base.z, vq_base.w]
-		velodyne_quat_base = R.from_quat(velodyne_quat_base)
-		self.velodyne_euls_base = velodyne_quat_base.as_euler('xyz')
+		self.velodyne_quat_base = R.from_quat(velodyne_quat_base)
+		self.velodyne_euls_base = self.velodyne_quat_base.as_euler('xyz')
 		# print("base euler angles:", self.velodyne_euls_base)
 
 		#for debug

@@ -132,11 +132,15 @@ class CloudMaker():
 		
 		vq_top = link_states.pose[2].orientation
 		velodyne_quat_top = [vq_top.x, vq_top.y, vq_top.z, vq_top.w]
+		# print("\n velodyne_quat_top", velodyne_quat_top)
 		velodyne_quat_top = R.from_quat(velodyne_quat_top)
 		self.velodyne_euls_top = velodyne_quat_top.as_euler('xyz')
 
+		#TODO: fix gimbal lock, top gets squirreley when pitching ~90deg 
+
 		vq_base = link_states.pose[1].orientation
 		velodyne_quat_base = [vq_base.x, vq_base.y, vq_base.z, vq_base.w]
+		# print("\n velodyne_quat_base", velodyne_quat_base)
 		velodyne_quat_base = R.from_quat(velodyne_quat_base)
 		self.velodyne_euls_base = velodyne_quat_base.as_euler('xyz')
 
@@ -154,24 +158,29 @@ class CloudMaker():
 
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+		print("\n base:",self.velodyne_euls_base) #debug
+		print("top:",self.velodyne_euls_top) #debug
+		print("base - top", self.velodyne_euls_base[2] - self.velodyne_euls_top[2] )
+
 		#check for finishing a scan w.r.t. world frame:
-		#check to see if we've done a full rotatin (3.14 -> -3.14)
-		# if self.velodyne_euls_top[2] < self.last_rot:
-		#w.r.t. base frame
 		#check to see if current rotation and last pose straddle start point on bottom of sensor 
 		# if ((self.velodyne_euls_top[2] > self.velodyne_euls_base[2] and self.last_rot < self.velodyne_euls_base[2] and not self.just_published)   \
 		# 	or (self.velodyne_euls_top[2] < self.velodyne_euls_base[2] and self.last_rot > self.velodyne_euls_base[2] and not self.just_published)) \
 		# 	and np.abs(self.velodyne_euls_top[2] - self.velodyne_euls_base[2]) < 0.1:
-		thresh = 0.001
-		# thresh = 0.0025
-		# thresh = 0.005 #debug
-		if np.abs(np.sin(self.velodyne_euls_base[2]) - np.sin(self.velodyne_euls_top[2])) < thresh \
-			and np.abs(np.cos(self.velodyne_euls_base[2]) - np.cos(self.velodyne_euls_top[2])) < thresh \
-			and self.dist_since_last_frame > 0.5: #make sure we didn't just save a scan
+		
+		# #use trig
+		# thresh = 0.001
+		# # thresh = 0.005 #debug
+		# if np.abs(np.sin(self.velodyne_euls_base[2]) - np.sin(self.velodyne_euls_top[2])) < thresh \
+		# 	and np.abs(np.cos(self.velodyne_euls_base[2]) - np.cos(self.velodyne_euls_top[2])) < thresh \
+		# 	and self.dist_since_last_frame > 0.25: #make sure we didn't just save a scan
+		
+		#simple difference
+		thresh = np.deg2rad(0.3)
+		if np.abs(self.velodyne_euls_base[2] - self.velodyne_euls_top[2]) < thresh \
+			and self.dist_since_last_frame > 1.0: #make sure we didn't just save a scan
+
 			# print("\n publishing scan")
-			print("base:",self.velodyne_euls_base) #debug
-			print("top:",self.velodyne_euls_top) #debug
-			# print("base - top", self.velodyne_euls_base[2] - self.velodyne_euls_top[2] )
 			# print("last:", self.last_rot)
 
 			self.pcPub.publish(point_cloud(self.cloud_i, 'map')) #publish full point cloud

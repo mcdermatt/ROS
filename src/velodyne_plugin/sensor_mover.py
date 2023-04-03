@@ -90,7 +90,7 @@ class SensorMover():
     # self.Twist_command.linear.y = 1.0
     # self.Twist_command.linear.z = 0.5
     # self.Twist_command.angular.x = 0.5
-    self.Twist_command.angular.y =  0.1
+    self.Twist_command.angular.y =  0.2
     self.Twist_command.angular.z = -1.0
 
   def set_constant_velocity(self):

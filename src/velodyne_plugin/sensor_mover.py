@@ -84,18 +84,18 @@ class SensorMover():
 
     #Set linear velocity of sensor
     self.Twist_command = Twist()
-    # self.Twist_command.linear.x =  1.5 # 33 mph
+    self.Twist_command.linear.x =  1.5 # 33 mph
     # self.Twist_command.linear.x =  1.0 # 22 mph
-    self.Twist_command.linear.x =  0.44 # 10 mph
+    # self.Twist_command.linear.x =  0.44 # 10 mph
     # self.Twist_command.linear.y = 1.0
     # self.Twist_command.linear.z = 0.5
-    # self.Twist_command.angular.x = 0.
-    # self.Twist_command.angular.y = 0.5
-    # self.Twist_command.angular.z = -1.0
+    # self.Twist_command.angular.x = 0.5
+    self.Twist_command.angular.y =  0.1
+    self.Twist_command.angular.z = -1.0
 
   def set_constant_velocity(self):
-
-    while not rospy.is_shutdown(): #while there's still a roscore
+    """with new and improved anit gimbal-lock technology"""
+    while not rospy.is_shutdown():
 
       self.lidar_state.pose.position.x += (self.Twist_command.linear.x / self.pub_rate)
       self.lidar_state.pose.position.y += (self.Twist_command.linear.y / self.pub_rate)
@@ -106,29 +106,117 @@ class SensorMover():
                         self.lidar_state.pose.orientation.y,
                         self.lidar_state.pose.orientation.z,
                         self.lidar_state.pose.orientation.w]
+      # print("\n curr_pose_quat:", curr_pose_quat)
+
+      #IMPORTANT: need to re-normalize quats!
+      curr_pose_quat = R.from_quat(curr_pose_quat).as_quat()
+      # print("after norm:", curr_pose_quat)
 
       #convert to euler angles to linearize
       curr_pose_eul = R.from_quat(curr_pose_quat).as_euler('xyz')
 
-      curr_pose_eul[0] += self.Twist_command.angular.x / self.pub_rate
-      curr_pose_eul[1] += self.Twist_command.angular.y / self.pub_rate
-      curr_pose_eul[2] += self.Twist_command.angular.z / self.pub_rate
-      # curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
+      # dot angular twist commands with current pose to get correct angles (and avoid gimbal lock):
 
-      #convert back to quat
-      new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()
-      self.lidar_state.pose.orientation.x = new_pose_quat[0]
-      self.lidar_state.pose.orientation.y = new_pose_quat[1]
-      self.lidar_state.pose.orientation.z = new_pose_quat[2]
-      self.lidar_state.pose.orientation.w = new_pose_quat[3]
+      # # using DCM representation
+      # body_frame_adjustments_dcm = R.from_euler('xyz', [self.Twist_command.angular.x,
+      #                                               self.Twist_command.angular.y,
+      #                                               self.Twist_command.angular.z]).as_dcm()
+      # print("\n body_frame_adjustments:",  R.from_dcm(body_frame_adjustments_dcm).as_euler('xyz'))
+      # curr_pose_dcm = R.from_quat(curr_pose_quat).as_dcm()
+      # print("curr_pose_dcm: \n", curr_pose_dcm)
+      # # world_frame_adjustments = curr_pose_dcm @ body_frame_adjustments_dcm @ np.linalg.pinv(curr_pose_dcm)  #was this - wrong
+      # world_frame_adjustments = curr_pose_dcm @ body_frame_adjustments_dcm 
+      # # print(world_frame_adjustments)
+      # world_frame_adjustments_eul = R.from_dcm(world_frame_adjustments).as_euler('xyz')
+      # print("world_frame_adjustments_eul", world_frame_adjustments_eul)
 
+      # # using Quat representation
+      # body_frame_adjustments_quat = R.from_euler('xyz', [self.Twist_command.angular.x,
+      #                                               self.Twist_command.angular.y,
+      #                                               self.Twist_command.angular.z]).as_quat()
+      # print("\n body_frame_adjustments:",  R.from_quat(body_frame_adjustments_quat).as_euler('xyz'))
+      # world_frame_adjustments = curr_pose_quat * body_frame_adjustments_quat
+      # world_frame_adjustments_eul = R.from_quat(world_frame_adjustments).as_euler('xyz')
+      # print("world_frame_adjustments_eul", world_frame_adjustments_eul)
+
+      #using scipy.rot builtin methods
+      body_frame_adjustments = R.from_euler('xyz', [self.Twist_command.angular.x,
+                                                    self.Twist_command.angular.y,
+                                                    self.Twist_command.angular.z])
+      # print("\n body_frame_adjustments:", body_frame_adjustments.as_euler('xyz'))
+      curr_pose = R.from_quat(curr_pose_quat)
+      # print("curr_pose", curr_pose.as_euler('xyz'))
+      # world_frame_adjustments = curr_pose * body_frame_adjustments * curr_pose.inv()
+      world_frame_adjustments = curr_pose * body_frame_adjustments
+
+      # #convert back to quat
+      # world_frame_adjustments_eul = world_frame_adjustments.as_euler('xyz')
+      # print("world_frame_adjustments_eul", world_frame_adjustments_eul)
+      # curr_pose_eul[0] += world_frame_adjustments_eul[0] / self.pub_rate
+      # curr_pose_eul[1] += world_frame_adjustments_eul[1] / self.pub_rate
+      # curr_pose_eul[2] += world_frame_adjustments_eul[2] / self.pub_rate
+      # # curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
+      # # print("curr_pose_eul:", curr_pose_eul)
+      # new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()
+      # self.lidar_state.pose.orientation.x = new_pose_quat[0]
+      # self.lidar_state.pose.orientation.y = new_pose_quat[1]
+      # self.lidar_state.pose.orientation.z = new_pose_quat[2]
+      # self.lidar_state.pose.orientation.w = new_pose_quat[3]
+
+      #use only quaternion representation
+      world_frame_adjustments_quat = world_frame_adjustments.as_quat()
+      # print("world_frame_adjustments", world_frame_adjustments.as_euler('xyz'))
+      self.lidar_state.pose.orientation.x = curr_pose_quat[0] + (world_frame_adjustments_quat[0] / self.pub_rate)
+      self.lidar_state.pose.orientation.y = curr_pose_quat[1] + (world_frame_adjustments_quat[1] / self.pub_rate)
+      self.lidar_state.pose.orientation.z = curr_pose_quat[2] + (world_frame_adjustments_quat[2] / self.pub_rate)
+      self.lidar_state.pose.orientation.w = curr_pose_quat[3] + (world_frame_adjustments_quat[3] / self.pub_rate)
       self.sensor_mover_pub.publish(self.lidar_state)
       self.twist_pub.publish(self.Twist_command)
 
-      if self.lidar_state.pose.position.x > 100:
+      if self.lidar_state.pose.position.x > 16: # 16 for test1, 100 for test3 
         self.reset()
 
       self.rate.sleep()
+
+  # def set_constant_velocity(self):
+  #   """Old version, relies on small angle assumtion"""
+
+  #   while not rospy.is_shutdown(): #while there's still a roscore
+
+  #     self.lidar_state.pose.position.x += (self.Twist_command.linear.x / self.pub_rate)
+  #     self.lidar_state.pose.position.y += (self.Twist_command.linear.y / self.pub_rate)
+  #     self.lidar_state.pose.position.z += (self.Twist_command.linear.z / self.pub_rate)
+
+  #     #get current pose
+  #     curr_pose_quat = [self.lidar_state.pose.orientation.x,
+  #                       self.lidar_state.pose.orientation.y,
+  #                       self.lidar_state.pose.orientation.z,
+  #                       self.lidar_state.pose.orientation.w]
+  #     print("\n curr_pose_quat:", curr_pose_quat)
+
+  #     #convert to euler angles to linearize
+  #     curr_pose_eul = R.from_quat(curr_pose_quat).as_euler('xyz')
+
+  #     curr_pose_eul[0] += self.Twist_command.angular.x / self.pub_rate
+  #     curr_pose_eul[1] += self.Twist_command.angular.y / self.pub_rate
+  #     curr_pose_eul[2] += self.Twist_command.angular.z / self.pub_rate
+  #     # curr_pose_eul[2] = -3*np.pi/4 #set z rotation to static nonzero value
+  #     print("curr_pose_eul:", curr_pose_eul)
+
+  #     #convert back to quat
+  #     new_pose_quat = R.from_euler('xyz', curr_pose_eul).as_quat()
+  #     self.lidar_state.pose.orientation.x = new_pose_quat[0]
+  #     self.lidar_state.pose.orientation.y = new_pose_quat[1]
+  #     self.lidar_state.pose.orientation.z = new_pose_quat[2]
+  #     self.lidar_state.pose.orientation.w = new_pose_quat[3]
+
+  #     self.sensor_mover_pub.publish(self.lidar_state)
+  #     self.twist_pub.publish(self.Twist_command)
+
+  #     if self.lidar_state.pose.position.x > 16: # 16 for test1, 100 for test3 
+  #       self.reset()
+
+  #     self.rate.sleep()
 
   def set_acceleration(self):
 

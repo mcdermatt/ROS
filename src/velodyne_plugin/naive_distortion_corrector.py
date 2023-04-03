@@ -195,15 +195,18 @@ class DistortionCorrector:
 
 	def remove_motion_distortion(self, points, motion_profile):
 		"""
-		Removes motion distortion from 3D LIDAR data.
+		Removes motion distortion from 3D LIDAR data. 
 
 		Args:
 		- points: numpy array of shape (N, 3) containing 3D LIDAR points
 		- motion_profile: numpy array of shape (N, 6) containing the motion profile of the LIDAR device during data acquisition
+		  				  DATA IS IN WORLD REFERENCE FRAME
 
 		Returns:
 		- corrected_points: numpy array of shape (N, 3) containing the motion distortion corrected 3D LIDAR points
 		"""
+
+		#OLD METHOD (SLOW) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		# Convert motion profile to homogeneous transformation matrices
 		T = []
 		for i in range(len(motion_profile)):
@@ -219,6 +222,8 @@ class DistortionCorrector:
 									  [0, 0, 1]]))
 			T.append(np.concatenate((np.concatenate((R, np.array([[tx], [ty], [tz]])), axis=1), np.array([[0, 0, 0, 1]])), axis=0))
 		
+		print(len(T))
+		print(len(points))
 		# Apply inverse of motion transformation to each point
 		corrected_points = np.zeros_like(points)
 		for i in range(len(points)):
@@ -227,6 +232,8 @@ class DistortionCorrector:
 			corrected_point = np.dot(T_inv, point)[:3]
 			corrected_points[i] = corrected_point
 		
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 		return corrected_points
 
 

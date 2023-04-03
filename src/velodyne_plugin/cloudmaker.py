@@ -169,8 +169,8 @@ class CloudMaker():
 			and np.abs(np.cos(self.velodyne_euls_base[2]) - np.cos(self.velodyne_euls_top[2])) < thresh \
 			and self.dist_since_last_frame > 0.5: #make sure we didn't just save a scan
 			# print("\n publishing scan")
-			# print("base:",self.velodyne_euls_base[2]) #debug
-			# print("top:",self.velodyne_euls_top[2]) #debug
+			print("base:",self.velodyne_euls_base) #debug
+			print("top:",self.velodyne_euls_top) #debug
 			# print("base - top", self.velodyne_euls_base[2] - self.velodyne_euls_top[2] )
 			# print("last:", self.last_rot)
 

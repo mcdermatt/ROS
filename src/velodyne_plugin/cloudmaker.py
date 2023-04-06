@@ -158,9 +158,9 @@ class CloudMaker():
 
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		print("\n base:",self.velodyne_euls_base) #debug
-		print("top:",self.velodyne_euls_top) #debug
-		print("base - top", self.velodyne_euls_base[2] - self.velodyne_euls_top[2] )
+		# print("\n base:",self.velodyne_euls_base) #debug
+		# print("top:",self.velodyne_euls_top) #debug
+		# print("base - top", self.velodyne_euls_base[2] - self.velodyne_euls_top[2] )
 
 		#check for finishing a scan w.r.t. world frame:
 		#check to see if current rotation and last pose straddle start point on bottom of sensor 

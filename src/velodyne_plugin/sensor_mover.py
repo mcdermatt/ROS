@@ -84,14 +84,14 @@ class SensorMover():
 
     #Set linear velocity of sensor
     self.Twist_command = Twist()
-    self.Twist_command.linear.x =  1.5 # 33 mph
+    # self.Twist_command.linear.x =  1.5 # 33 mph
     # self.Twist_command.linear.x =  1.0 # 22 mph
     # self.Twist_command.linear.x =  0.44 # 10 mph
-    # self.Twist_command.linear.y = 1.0
+    # self.Twist_command.linear.y = -0.5
     # self.Twist_command.linear.z = 0.5
     # self.Twist_command.angular.x = 0.5
-    self.Twist_command.angular.y =  0.2
-    self.Twist_command.angular.z = -1.0
+    # self.Twist_command.angular.y = 0.2 #0.5
+    # self.Twist_command.angular.z = -1.0
 
   def set_constant_velocity(self):
     """with new and improved anit gimbal-lock technology"""

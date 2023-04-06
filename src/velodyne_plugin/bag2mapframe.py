@@ -40,7 +40,11 @@ if gpus:
 #--------------------------------------------------------------------------------------
 
 # cd Downloads
+## 05: Quad with dynamics
 # rosbag play rooster_2020-07-10-09-13-52_0-001.bag
+
+## 06: Dynamic Spinning
+# rosbag play rooster_2020-07-10-09-23-18_0.bag
 
 class BagConverter():
 
@@ -53,6 +57,8 @@ class BagConverter():
     r = 1_000
     self.rate = rospy.Rate(r)
 
+    self.count = 0
+
   def on_bag_point_cloud(self, scan):
 
     #convert cloud msg to np array
@@ -64,6 +70,12 @@ class BagConverter():
     # print(pc_xyz)
 
     self.pcPub.publish(point_cloud(pc_xyz, 'map'))
+
+    # #save PC to external drive
+    # # fn = "/media/derm/06EF-127D3/Newer College Dataset/06_Dynamic_Spinning/point_clouds/frame_" + str(self.count)
+    # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/point_clouds/frame_" + str(self.count)
+    # np.save(fn, pc_xyz)
+    # self.count += 1
 
 
 

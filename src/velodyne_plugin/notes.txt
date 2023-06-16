@@ -1,0 +1,33 @@
+Requires instillation of PCL from binary in order to run: ---------------------------
+
+follow instructions here:
+https://alwynm.github.io/blog/general/pcl
+
+>> cd ~/Downloads
+>> git clone https://github.com/PointCloudLibrary/pcl
+>> tar xvfj pcl-pcl-1.13.0.tar.gz
+>> cd pcl-pcl-1.13.0 && mkdir build && cd build
+>> cmake -DCMAKE_BUILD_TYPE=Release ..
+>> make -j2
+>> make install
+
+
+you may run into issues with CUDA compiler: "No CMAKE_CUDA_COMPILER could be found"
+
+if so, you need to add filepath of nvcc as an enviornemnt variable with the following bash command:
+
+>> export CUDACXX=/usr/local/cuda/bin/nvcc
+
+--------------------------------------------------------------------------------------
+
+
+Once PCL is built from source, you need to modify <CMakeLists.txt> of the LOAM package 
+to point towards compiled PCL directory  
+
+>> cd ~/catkin_ws/src/LOAM_3D_LIDARs/
+>> subl CMakeLists.txt
+
+debugging to get rid of built in PCL version that comes with ROS
+(causes segfault):
+https://github.com/laboshinl/loam_velodyne/issues/71
+https://answers.ros.org/question/235891/how-to-remove-this-error-in-pcl/

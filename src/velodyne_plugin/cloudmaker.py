@@ -191,6 +191,7 @@ class CloudMaker():
 			self.last_rot = self.velodyne_euls_base[2] #test
 
 			# print(self.count) #for debug
+			print("just_published")
 			self.init_scan()
 
 		else:

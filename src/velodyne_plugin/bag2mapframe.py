@@ -41,7 +41,9 @@ if gpus:
 
 # cd Downloads
 ## 05: Quad with dynamics
-# rosbag play rooster_2020-07-10-09-13-52_0-001.bag
+# rosbag play rooster_2020-07-10-09-13-52_0-001.bag #confirmed first bag
+# rosbag play rooster_2020-07-10-09-16-39_1.bag #2nd bag
+# rosbag play rooster_2020-07-10-09-19-26_2.bag #3rd bag
 
 ## 06: Dynamic Spinning
 # rosbag play rooster_2020-07-10-09-23-18_0.bag
@@ -72,10 +74,14 @@ class BagConverter():
     self.pcPub.publish(point_cloud(pc_xyz, 'map'))
 
     # #save PC to external drive
-    # # fn = "/media/derm/06EF-127D3/Newer College Dataset/06_Dynamic_Spinning/point_clouds/frame_" + str(self.count)
-    # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/point_clouds/frame_" + str(self.count)
+    # fn = "/media/derm/06EF-127D3/Newer College Dataset/06_Dynamic_Spinning/point_clouds/frame_" + str(self.count)
+    # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/point_clouds/frame_" + str(self.count) #first bag
+
+    #test -- not sure what comes after first bag
+    # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/test/frame_" + str(self.count + 3358) #2nd bag??
+
     # np.save(fn, pc_xyz)
-    # self.count += 1
+    self.count += 1
 
 
 

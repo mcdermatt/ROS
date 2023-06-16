@@ -77,11 +77,11 @@ def main():
     # publish custom message with additional LIDAR info
     etcPub = rospy.Publisher('lidar_info', Num, queue_size=1) #This publisher can hold 10 msgs that haven't been sent yet.  
     rospy.init_node('LidarScanner', anonymous=False)
-    # r = 10 #real time (too fast to work at full resolution)
+    r = 10 #real time (too fast to work at full resolution)
     # r = 5 #slower real time (many sensors run at 5Hz)
     # r = 3
     # r = 2
-    r = 1
+    # r = 1
     rate = rospy.Rate(r) # hz
     
     start_time = rospy.get_time()
@@ -89,16 +89,16 @@ def main():
     while not rospy.is_shutdown(): # While there's a roscore
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # # use simulated point clouds stored in .csv I generated for a previous publication 
-        # # https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
-        # runlen = 40 #this many frames in the dataset
-        # # idx = int(r*rospy.get_time()%runlen) + 1 #use ROS timestamp as seed for scan idx
-        # # idx = int(2*r*rospy.get_time()%runlen) + 1 #use ROS timestamp as seed for scan idx
-        # idx = int(r*(rospy.get_time() - start_time)%runlen) + 1 #test
-        # print(idx)
-        # fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
-        # pcNpy = np.loadtxt(fn)
-        # pcNpy += 0.02*np.random.randn(np.shape(pcNpy)[0], 3) #simulate sensor noise (important)
+        # use simulated point clouds stored in .csv I generated for a previous publication 
+        # https://github.com/mcdermatt/ASAR/tree/main/v3/spherical_paper/MC_trajectories
+        runlen = 40 #this many frames in the dataset
+        # idx = int(r*rospy.get_time()%runlen) + 1 #use ROS timestamp as seed for scan idx
+        # idx = int(2*r*rospy.get_time()%runlen) + 1 #use ROS timestamp as seed for scan idx
+        idx = int(r*(rospy.get_time() - start_time)%runlen) + 1 #test
+        print(idx)
+        fn = "/home/derm/ASAR/v3/spherical_paper/MC_trajectories/scene1_scan" + str(idx) + ".txt"
+        pcNpy = np.loadtxt(fn)
+        pcNpy += 0.02*np.random.randn(np.shape(pcNpy)[0], 3) #simulate sensor noise (important)
         # rot = R_tf(tf.constant([0., 0., idx*0.05])) #simulate constant turning
         # pcNpy = pcNpy @ rot.numpy() 
 
@@ -133,7 +133,7 @@ def main():
         # #use Ouster sample dataset (from high fidelity 128-channel sensor), 719 frames total
         # runlen = 615 #715
         # idx = int(r*(rospy.get_time() - start_time)%runlen) + 100 #+ 1
-        # fn1 = "/media/derm/06EF-127D2/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
+        # fn1 = "/media/derm/06EF-127D3/Ouster/csv/pcap_out_" + '%06d.csv' %(idx)
         # print("Publishing", fn1)
         # df1 = pd.read_csv(fn1, sep=',', skiprows=[0])
         # pcNpy = df1.values[:,8:11]*0.001 #1st sensor return (what we want)
@@ -149,22 +149,22 @@ def main():
         #     pcls = hf['point_cloud'][idx, vidx, :, :3]
         # pcNpy = pcls + 0.02*np.random.randn(len(pcls),3)
 
-        #LeddarTech PixSet LIDAR dataset
-        # drive = "20200721_144638_part36_1956_2229" #big hill and church, 273
-        # runlen = 273
-        # drive = "20200617_191627_part12_1614_1842" #straight road, narrow with pedestrians and shops, 232
-        # runlen = 230
-        drive = "20200721_154835_part37_696_813" #overgrown highway
-        runlen = 120
-        # drive = "20200706_161206_part22_670_950" #suburb, 284
-        # runlen = 284
-        prefix = "/media/derm/06EF-127D2/leddartech/" + drive + "/ouster64_bfc_xyzit/"
-        idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
-        # fn1 = prefix + "00000210.pkl"
-        fn1 = prefix + '%08d.pkl' %(idx)
-        with open(fn1, 'rb') as f:
-            data1 = pickle.load(f)
-        pcNpy = np.asarray(data1.tolist())[:,:3]
+        # #LeddarTech PixSet LIDAR dataset
+        # # drive = "20200721_144638_part36_1956_2229" #big hill and church, 273
+        # # runlen = 273
+        # # drive = "20200617_191627_part12_1614_1842" #straight road, narrow with pedestrians and shops, 232
+        # # runlen = 230
+        # drive = "20200721_154835_part37_696_813" #overgrown highway
+        # runlen = 120
+        # # drive = "20200706_161206_part22_670_950" #suburb, 284
+        # # runlen = 284
+        # prefix = "/media/derm/06EF-127D2/leddartech/" + drive + "/ouster64_bfc_xyzit/"
+        # idx = int(r*(rospy.get_time() - start_time)%runlen) + 1
+        # # fn1 = prefix + "00000210.pkl"
+        # fn1 = prefix + '%08d.pkl' %(idx)
+        # with open(fn1, 'rb') as f:
+        #     data1 = pickle.load(f)
+        # pcNpy = np.asarray(data1.tolist())[:,:3]
 
         # # Ford Campus Dataset
         # runlen = 3889
@@ -205,7 +205,8 @@ def main():
 
         if idx == runlen:
             print("\n resetting LIDAR sensor")
-            sleep(5)
+            # sleep(5)
+            sleep(0.01)
             print("\n done")
             start_time = rospy.get_time()
 

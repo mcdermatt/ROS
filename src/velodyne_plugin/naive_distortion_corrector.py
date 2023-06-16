@@ -73,7 +73,10 @@ class DistortionCorrector:
 		if self.save_data: 
 			print("\n recording frame_idx:", self.frame_idx)
 			root_dir = "/home/derm/ASAR/v3/point_cloud_rectification/sample_data/"
-			trajectory_name = "test1/"
+			# trajectory_name = "test1/"
+			# trajectory_name = "paper_figures/case1/" #static sensor
+			# trajectory_name = "paper_figures/case2/"  #constant forward velocity
+			trajectory_name = "paper_figures/case3/"  #constant forward/ lateral velocity + yaw  
 			fn_vel_cmd = root_dir + trajectory_name + "base_vel_" + str(self.frame_idx)
 			np.save(fn_vel_cmd, self.vel_history_for_this_frame)
 			self.vel_history_for_this_frame = np.zeros([0,6])

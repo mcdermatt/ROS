@@ -47,10 +47,18 @@ https://kiranpalla.com/blog/ros-using-gazebo-laser-scan-plug-in/
 roslaunch ICET woven_mapping.launch args1:="3" args2:="5"
 
 killall gzserver #use if gazebo won't  open
-gazebo --verbose ../velodyne.world #run world with custom Velodyne sensor (and plugins)\
+# gazebo --verbose ../velodyne.world #run world with custom Velodyne sensor (and plugins)\
 rostopic pub /my_velodyne/vel_cmd std_msgs/Float32 6.28 #set velodyne unit to spin at 1 rev/s
 source /usr/share/gazebo/setup.sh
 source /usr/share/gazebo-11/setup.sh
 gz topic -e /gazebo/default/my_velodyne/top/sensor/scan
 
+cd ~/ROS/src/velodyne_plugin/build
 rosrun gazebo_ros gazebo ../velodyne.world #AAAaaaaaAAAAaaaaHHHhhHHhHhHHHh that took wayyy too long to figure out
+python3 cloudmaker.py
+./naive_distortion_corrector.py
+./sensor_mover.py
+
+
+# if frame not visible
+rosrun tf static_transform_publisher 0 0 0 0 0 0 1 map my_frame 10

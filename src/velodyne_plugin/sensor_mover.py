@@ -75,7 +75,9 @@ class SensorMover():
     self.lidar_state.link_name = 'base'
     # set lidar height to that of KITTI
     # (and so we don't get weird collision effects with ground plane)
-    self.lidar_state.pose.position.z = 1.72 
+    # self.lidar_state.pose.position.z = 1.72
+    self.lidar_state.pose.position.z = 1.72 #for new testbox.world 
+    self.lidar_state.pose.position.x = 5.
 
     self.count = 0
     self.dv_x = 0
@@ -84,13 +86,14 @@ class SensorMover():
 
     #Set linear velocity of sensor
     self.Twist_command = Twist()
+    # self.Twist_command.linear.x =  3.0
     # self.Twist_command.linear.x =  1.5 # 33 mph
     # self.Twist_command.linear.x =  1.0 # 22 mph
     # self.Twist_command.linear.x =  0.44 # 10 mph
-    # self.Twist_command.linear.y = -0.5
+    # self.Twist_command.linear.y = -1. #-1.0
     # self.Twist_command.linear.z = 0.5
     # self.Twist_command.angular.x = 0.5
-    # self.Twist_command.angular.y = 0.2 #0.5
+    # self.Twist_command.angular.y = 0.1 #0.5
     # self.Twist_command.angular.z = -1.0
 
   def set_constant_velocity(self):
@@ -173,7 +176,7 @@ class SensorMover():
       self.sensor_mover_pub.publish(self.lidar_state)
       self.twist_pub.publish(self.Twist_command)
 
-      if self.lidar_state.pose.position.x > 16: # 16 for test1, 100 for test3 
+      if self.lidar_state.pose.position.x > 8: # 16 for test1, 100 for test3 
         self.reset()
 
       self.rate.sleep()

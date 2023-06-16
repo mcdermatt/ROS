@@ -7,3 +7,4 @@
 subdirs("gtest")
 subdirs("ICET")
 subdirs("funtimes")
+subdirs("LOAM_3D_LIDARs")

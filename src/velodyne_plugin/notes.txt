@@ -31,3 +31,9 @@ debugging to get rid of built in PCL version that comes with ROS
 (causes segfault):
 https://github.com/laboshinl/loam_velodyne/issues/71
 https://answers.ros.org/question/235891/how-to-remove-this-error-in-pcl/
+
+Turns out you can sidestep installing PCL from source and getting incorrect version built in with ROS-Noetic by:
+
+set "find_package(PCL REQUIRED)" in LOAM_3D_LIDARS CMakeLists.txt (exclude version number)
+>> sudo apt-get remove --purge libpcl*
+>> sudo apt-get install ros-noetic-perception

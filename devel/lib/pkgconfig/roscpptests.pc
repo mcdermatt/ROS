@@ -1,8 +1,0 @@
-prefix=/home/derm/ROS/devel
-
-Name: roscpptests
-Description: Description of roscpptests
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 

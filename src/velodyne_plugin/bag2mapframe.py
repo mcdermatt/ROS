@@ -40,6 +40,15 @@ if gpus:
 #--------------------------------------------------------------------------------------
 
 # cd Downloads
+
+##01: Short Experiment
+# rosbag play rooster_2020-03-10-10-36-30_0.bag #first bag
+# rosbag play rooster_2020-03-10-10-39-18_1-009.bag #2nd 
+# rosbag play rooster_2020-03-10-10-42-05_2-008.bag #3rd
+# rosbag play rooster_2020-03-10-10-44-52_3-006.bag --rate 0.1 #4th
+# rosbag play rooster_2020-03-10-10-50-26_5-001.bag --rate 0.1 #6th
+# rosbag play rooster_2020-03-10-10-53-13_6-005.bag #7th
+
 ## 05: Quad with dynamics
 # rosbag play rooster_2020-07-10-09-13-52_0-001.bag #confirmed first bag
 # rosbag play rooster_2020-07-10-09-16-39_1.bag #2nd bag
@@ -60,6 +69,11 @@ class BagConverter():
     self.rate = rospy.Rate(r)
 
     self.count = 0
+    # self.count = 1670 #start of bag 1.2
+    # self.count = 3340 #start of bag 1.3
+    # self.count = 5010 #start of bag 1.4
+    # self.count = 8351 #start of 1.6
+    # self.count = 11691 #TODO-- start here with rooster_2020-03-10-10-56-00_7-007.bag
 
   def on_bag_point_cloud(self, scan):
 
@@ -76,11 +90,14 @@ class BagConverter():
     # #save PC to external drive
     # fn = "/media/derm/06EF-127D3/Newer College Dataset/06_Dynamic_Spinning/point_clouds/frame_" + str(self.count)
     # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/point_clouds/frame_" + str(self.count) #first bag
+    # fn = "/media/derm/06EF-127D4/Newer College Dataset/01_Short_Experiment/point_clouds/frame_" + str(self.count)
+    fn = "/media/derm/06EF-127D4/Newer College Dataset/05_Quad_With_Dynamics/point_clouds_test/frame_" + str(self.count) #first bag
 
     #test -- not sure what comes after first bag
     # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/test/frame_" + str(self.count + 3358) #2nd bag??
 
-    # np.save(fn, pc_xyz)
+    print("saving... ", fn)
+    np.save(fn, pc_xyz)
     self.count += 1
 
 

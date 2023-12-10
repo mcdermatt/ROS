@@ -51,8 +51,8 @@ class DistortionCorrector:
 		self.pcPub = rospy.Publisher('/rectified_point_cloud', PointCloud2, queue_size = 1)
 		r = 1000
 		self.rate = rospy.Rate(r)
-		self.save_data = False
-		# self.save_data = True
+		# self.save_data = False
+		self.save_data = True
 
 		self.frame_idx = 0
 		self.linear_vel_estimate = np.zeros([6])
@@ -76,7 +76,8 @@ class DistortionCorrector:
 			# trajectory_name = "test1/"
 			# trajectory_name = "paper_figures/case1/" #static sensor
 			# trajectory_name = "paper_figures/case2/"  #constant forward velocity
-			trajectory_name = "paper_figures/case3/"  #constant forward/ lateral velocity + yaw  
+			# trajectory_name = "paper_figures/case3/"  #constant forward/ lateral velocity + yaw  
+			trajectory_name = "paper_figures/relative_distortion_fig/"
 			fn_vel_cmd = root_dir + trajectory_name + "base_vel_" + str(self.frame_idx)
 			np.save(fn_vel_cmd, self.vel_history_for_this_frame)
 			self.vel_history_for_this_frame = np.zeros([0,6])
@@ -186,8 +187,8 @@ class DistortionCorrector:
 		self.pcPub.publish(point_cloud(undistorted_pc, 'map'))
 
 		if self.save_data:
-			fn_raw = root_dir + trajectory_name + "raw_frame_" + str(self.frame_idx)
-			fn_rectified = root_dir + trajectory_name + "rectified_linear_frame_" + str(self.frame_idx) 
+			fn_raw = root_dir + trajectory_name + "raw_frame_v2_" + str(self.frame_idx)
+			fn_rectified = root_dir + trajectory_name + "rectified_linear_frame_v2_" + str(self.frame_idx) 
 
 			np.save(fn_raw, np.array(xyz))
 			np.save(fn_rectified, undistorted_pc)

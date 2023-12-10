@@ -27,17 +27,29 @@ import tf2_ros
 
 ## play 05: Quad With Dynamics:
 # rosbag play -l -r 0.2 rooster_2020-07-10-09-16-39_1.bag
+## play one lap of running around the quad starting from static position
+# rosbag play -l -r 0.05 --clock -s 35.1 rooster_2020-07-10-09-16-39_1.bag
+
+#start at very beginning, first onset of motion (280)
+#rosbag play -l -r 0.05 --clock -s 28  rooster_2020-07-10-09-13-52_0-001.bag
+
+#start at 1800
+# rosbag play -l -r 0.05 --clock -s 12 rooster_2020-07-10-09-16-39_1.bag
+#start  at 1790
+# rosbag play -l -r 0.05 --clock -s 11 rooster_2020-07-10-09-16-39_1.bag
+
 
 ## play 06: Dynamic Spinning:
 # rosbag play -l -r 0.1  rosbag play rooster_2020-07-10-09-23-18_0.bag
 ## start midway through trial to have LOAM initialize on distorted scene
-# rosbag play -l -r 0.1 --clock -s 30 rosbag play rooster_2020-07-10-09-23-18_0.bag 
+# rosbag play -r 0.05 --clock -s 95 rooster_2020-07-10-09-23-18_0.bag
 
 
 class LOAMSaver():
   ''' Saves outputs of LOAM to text file '''
 
-  def __init__(self, odom_topic = '/laser_odom_to_init'):
+  # odom_topic = '/laser_odom_to_init' #old, starts to drift off a lot -- (05_test1)
+  def __init__(self, odom_topic = '/integrated_to_init'):
 
     rospy.init_node('LOAM_Saver', anonymous=False)
 
@@ -47,11 +59,19 @@ class LOAMSaver():
     r = 100
     self.rate = rospy.Rate(r)
 
-    # self.save_clouds = False
-    self.save_clouds = True
+    self.save_traj = True
+    # self.save_traj = False
+    # self.save_clouds = True
+    self.save_clouds = False
+
     self.file_dir = "/home/derm/ASAR/v3/point_cloud_rectification/results/LOAM/"
-    # self.traj_idx = "05_test1"
-    self.traj_idx = "06_test1"
+    self.traj_idx = "05_LOAM_start_from_static_v5"
+    # self.traj_idx = '06_LOAM_dynamic_start_v7'
+    # self.traj_idx = '05_LOAM_start_from_2800_v1'
+    # self.traj_idx = '05_LOAM_start_from_2700_v1'
+    # self.traj_idx = '05_LOAM_start_from_1800_v2'
+    # self.traj_idx = '05_LOAM_start_from_1790_v1'
+    # self.traj_idx = "05_LOAM_start_from_280_v1"
 
     self.reset()
 
@@ -81,8 +101,8 @@ class LOAMSaver():
     new_pose = np.array([[x, y, z, euls[0], euls[1], euls[2]]])
     self.traj = np.append(self.traj, new_pose, axis = 0)
     # print(self.traj)
-    np.save(fn_traj, self.traj)
-
+    if self.save_traj:
+      np.save(fn_traj, self.traj)
 
     self.count += 1
 

@@ -56,6 +56,9 @@ class BagConverter():
     self.pcSub = rospy.Subscriber(point_cloud_topic, PointCloud2, self.on_bag_point_cloud, queue_size = 1)
     self.pcPub = rospy.Publisher('/os1_node/points', PointCloud2, queue_size = 1)
 
+    #copy IMU packets as well
+    
+
     r = 1_000
     self.rate = rospy.Rate(r)
 
@@ -71,8 +74,8 @@ class BagConverter():
     pc_xyz = np.array(xyz)
     # print(pc_xyz)
 
-    # self.pcPub.publish(point_cloud(pc_xyz, 'map')) #was this in old script (wrong)
-    self.pcPub.publish(point_cloud(pc_xyz, 'os1_lidar')) #test
+    self.pcPub.publish(point_cloud(pc_xyz, 'os1_lidar')) #works for getting edge points, not sure if correct
+    # self.pcPub.publish(point_cloud(pc_xyz, '/camera'))
 
     # #save PC to external drive
     # fn = "/media/derm/06EF-127D3/Newer College Dataset/06_Dynamic_Spinning/point_clouds/frame_" + str(self.count)

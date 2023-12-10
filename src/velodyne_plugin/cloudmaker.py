@@ -69,7 +69,7 @@ class CloudMaker():
 
 		self.rotation_angle_noise_scale = np.deg2rad(0.5)
 
-		r = 1_000
+		r = 10_000
 		self.rate = rospy.Rate(r)
 
 	def init_scan(self):

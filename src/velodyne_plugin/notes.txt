@@ -1,12 +1,14 @@
-Requires instillation of PCL from binary in order to run: ---------------------------
+Requires instillation of PCL 1.10 from binary in order to run: -----------------------
+
+NEED TO DOWNLOAD AND INSTALL WITHIN CATKIN WORKSPACE 
 
 follow instructions here:
 https://alwynm.github.io/blog/general/pcl
 
->> cd ~/Downloads
+>> cd ~/catkin_ws/src
 >> git clone https://github.com/PointCloudLibrary/pcl
->> tar xvfj pcl-pcl-1.13.0.tar.gz
->> cd pcl-pcl-1.13.0 && mkdir build && cd build
+>> tar xvfj pcl-pcl-1.10.0.tar.gz
+>> cd pcl-pcl-1.10.0 && mkdir build && cd build
 >> cmake -DCMAKE_BUILD_TYPE=Release ..
 >> make -j2
 >> make install
@@ -32,8 +34,11 @@ debugging to get rid of built in PCL version that comes with ROS
 https://github.com/laboshinl/loam_velodyne/issues/71
 https://answers.ros.org/question/235891/how-to-remove-this-error-in-pcl/
 
-Turns out you can sidestep installing PCL from source and getting incorrect version built in with ROS-Noetic by:
-
 set "find_package(PCL REQUIRED)" in LOAM_3D_LIDARS CMakeLists.txt (exclude version number)
+>> sudo apt-get install ros-noetic-pcl-conversions
+remove dependencies (ROS pcl) but leaves pcl-conversions (necessary)
 >> sudo apt-get remove --purge libpcl*
->> sudo apt-get install ros-noetic-perception
+
+Above was a HUGE PITA since pcl-conversions (seprate package from pcl) is no longer open source 
+so I had to try multiple pcl builds from source since only available prebuilt PCL-conversions binary
+segfauls when used with most recent PCL-ros

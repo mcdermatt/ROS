@@ -97,7 +97,7 @@ class SensorPlacer():
 
 
     #randomize rotations (Gazebo only takes input in quats)
-    new_pose_eul = np.array([0.*np.random.randn(), 0.3*np.random.randn(), 0.*np.random.randn()]) #xyz world frame(?)
+    new_pose_eul = np.array([0.*np.random.randn(), 0.*np.random.randn(), 0.01*np.random.randn()]) #xyz world frame(?)
     new_pose_quat = R.from_euler('xyz', new_pose_eul).as_quat()
     self.lidar_state.pose.orientation.x = new_pose_quat[0]
     self.lidar_state.pose.orientation.y = new_pose_quat[1]

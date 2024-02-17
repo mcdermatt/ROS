@@ -47,7 +47,7 @@ void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
     Eigen::VectorXf X0(6);
     X0 << 0., 0, 0., 0., 0., 0.;
     int numBinsPhi = 16;
-    int numBinsTheta = 40;
+    int numBinsTheta = 50;
     int n = 10; // min size of the cluster
     float thresh = 0.3; // Jump threshold for beginning and ending radial clusters
     float buff = 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
@@ -64,7 +64,7 @@ void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
   auto after1 = std::chrono::system_clock::now();
   auto after1Ms = std::chrono::time_point_cast<std::chrono::milliseconds>(after1);
   auto elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(after1Ms - beforeMs).count();
-  std::cout << "loaded point clouds in: " << elapsedTimeMs << " ms" << std::endl;
+  std::cout << "registered scans in: " << elapsedTimeMs << " ms" << std::endl;
 }
 
 int main(int argc, char** argv)

@@ -111,6 +111,9 @@ catkin_package(
  DEPENDS system_lib
 )
 
+# Set optimization flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native")
+
 ###########
 ## Build ##
 ###########

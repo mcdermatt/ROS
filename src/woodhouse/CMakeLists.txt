@@ -105,10 +105,10 @@ find_package(PCL REQUIRED COMPONENTS common io)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES woodhouse
-#  CATKIN_DEPENDS rospy rpscpp std_msgs
-#  DEPENDS system_lib
+ INCLUDE_DIRS include
+ LIBRARIES woodhouse
+ CATKIN_DEPENDS rospy rpscpp std_msgs
+ DEPENDS system_lib
 )
 
 ###########
@@ -118,7 +118,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
 )
@@ -163,6 +163,18 @@ target_link_libraries(pcl_subscriber_node
 )
 add_definitions(${PCL_DEFINITIONS})
 
+add_executable(scan_matcher_node src/scanMatcher.cpp src/icet.cpp)
+target_link_libraries(scan_matcher_node 
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
+add_definitions(${PCL_DEFINITIONS})
+
+add_executable(scan_matcher src/scanMatcher.cpp src/icet.cpp)
+target_link_libraries(scan_matcher
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
 
 #############
 ## Install ##

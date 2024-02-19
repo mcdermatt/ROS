@@ -179,6 +179,12 @@ target_link_libraries(scan_matcher
   ${PCL_LIBRARIES}
 )
 
+add_executable(simple_map_maker_node src/simpleMapMaker.cpp src/icet.cpp)
+target_link_libraries(simple_map_maker_node
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
+
 #############
 ## Install ##
 #############

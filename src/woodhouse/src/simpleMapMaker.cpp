@@ -3,16 +3,17 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <pcl/registration/icp.h>
 #include <Eigen/Dense>
 #include "icet.h"
 
-class ScanRegistrationNode {
+class MapMakerNode {
 public:
-    ScanRegistrationNode() : nh_("~") {
+    MapMakerNode() : nh_("~") {
         // Set up ROS subscribers and publishers
-        pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &ScanRegistrationNode::pointcloudCallback, this);
-        aligned_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/aligned_pointcloud_topic", 1);
+        pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &MapMakerNode::pointcloudCallback, this);
+        aligned_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/hd_map", 1);
 
         // Initialize the previous point cloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr prev_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -73,10 +74,50 @@ public:
         Eigen:MatrixXf scan2_in_scan1_frame = (pcl_matrix * rot_mat.inverse()).rowwise() - trans;
         // std::cout << scan2_in_scan1_frame << endl;
 
-        // pcl::toROSMsg(*pcl_cloud, aligned_cloud_msg);
-        // pcl::toROSMsg(scan2_in_scan1_frame, aligned_cloud_msg);
+        //"broadcast" transform that relates /velodyne frame to /map frame ~~~~~~~~~~~~~~~~~~~~~
+        //convert ICET output X for scan i to homogenous transformation matrix
+        Eigen::Matrix4f X_homo_i = Eigen::Matrix4f::Identity();
+        X_homo_i.block<3, 3>(0, 0) = rot_mat;
+        X_homo_i.block<3, 1>(0, 3) = trans.transpose();
 
-        //TODO: perform transform by keeping scan2 in pcl format so we can use builtin pcl functions for transform
+        //update accumulated transfrom
+        X_homo = X_homo * X_homo_i;
+        std::cout << X_homo <<endl;
+
+        // // Example: Assuming you have a 3x3 rotation matrix and a translation vector
+        // Eigen::Matrix3f rotationMatrix;  // Replace with your actual rotation matrix
+        // Eigen::RowVector3f translationVector;  // Replace with your actual translation vector
+
+        // // Create a geometry_msgs::TransformStamped message
+        // geometry_msgs::TransformStamped transformStamped;
+
+        // // Set the frame IDs
+        // transformStamped.header.frame_id = "odom";     // Parent frame (e.g., odom)
+        // transformStamped.child_frame_id = "lidar";     // Child frame (e.g., lidar)
+
+        // // Convert Eigen rotation matrix to quaternion
+        // Eigen::Quaternionf quaternion(rotationMatrix);
+
+        // // Set the translation and rotation in the transform message
+        // transformStamped.transform.translation.x = translationVector.x();
+        // transformStamped.transform.translation.y = translationVector.y();
+        // transformStamped.transform.translation.z = translationVector.z();
+
+        // transformStamped.transform.rotation.x = quaternion.x();
+        // transformStamped.transform.rotation.y = quaternion.y();
+        // transformStamped.transform.rotation.z = quaternion.z();
+        // transformStamped.transform.rotation.w = quaternion.w();
+
+        // // Set the timestamp
+        // transformStamped.header.stamp = lidar_msg->header.stamp;  // Use lidar scan timestamp
+
+        // // Broadcast the transform
+        // broadcaster_.sendTransform(transformStamped);
+
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        //TODO: expand map by keeping scan2 in pcl format so we can use builtin pcl functions for transform
+        //     (I think this should be more efficient than converting everything to eigen)
 
         // Create a header for the ROS message
         std_msgs::Header header;
@@ -96,6 +137,10 @@ private:
     ros::Subscriber pointcloud_sub_;
     ros::Publisher aligned_pointcloud_pub_;
     pcl::PointCloud<pcl::PointXYZ>::Ptr prev_pcl_cloud_;
+
+    //init variable to hold cumulative homogenous transform
+    Eigen::Matrix4f X_homo = Eigen::Matrix4f::Identity(); 
+
 
     Eigen::MatrixXf convertPCLtoEigen(const pcl::PointCloud<pcl::PointXYZ>::Ptr& pcl_cloud) {
         Eigen::MatrixXf eigen_matrix(pcl_cloud->size(), 3);
@@ -126,8 +171,8 @@ private:
 };
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "scan_registration_node");
-    ScanRegistrationNode scan_registration_node;
+    ros::init(argc, argv, "simple_map_maker_node");
+    MapMakerNode simple_map_maker_node;
     ros::spin();
     return 0;
 }

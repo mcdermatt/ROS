@@ -1021,6 +1021,10 @@ Eigen::VectorXf icet(Eigen::MatrixXf points, Eigen::MatrixXf points2, Eigen::Vec
     //main loop
     for (int iter = 0; iter<runlen; iter++ ){
 
+        std::cout << "cloud1: " << points.rows() << endl;
+        std::cout << "cloud2: " << points2.rows() << endl;
+        std::cout << "iter: \n" << iter << endl;
+
         // apply transformation to points2
         MatrixXf rot_mat = R(X[3], X[4], X[5]); 
         Eigen::RowVector3f trans(X[0], X[1], X[2]);

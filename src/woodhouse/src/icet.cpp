@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 #include <GL/glut.h>
+// #define EIGEN_NO_DEBUG
 #include <Eigen/Dense>
 #include <random>
 #include <cmath>
@@ -861,7 +862,7 @@ Eigen::VectorXf icet(Eigen::MatrixXf points, Eigen::MatrixXf points2, Eigen::Vec
     // init structure to store covariance data
     //set cluster bounds as [n, 6] matrix
     Eigen::MatrixXd clusterBounds(10000,6); //for max resolution 100x100
-    Eigen::MatrixXf testPoints(10000, 3); //for U and L
+    Eigen::MatrixXf testPoints(100000, 3); //for U and L
 
     //init structure to store covaraince matrices
     // Type definition for the covariance matrix
@@ -893,6 +894,9 @@ Eigen::VectorXf icet(Eigen::MatrixXf points, Eigen::MatrixXf points2, Eigen::Vec
         sortedPointsSpherical.row(i) = pointsSpherical.row(index[i]);
     }
 
+    // std::cout << "made it through initial sorting" << endl;
+    // std::cout << sortedPointsSpherical.rows() << endl;
+
     //get spherical coordiantes and fit gaussians to points from first scan 
     vector<vector<vector<int>>> pointIndices = sortSphericalCoordinates(sortedPointsSpherical, numBinsTheta, numBinsPhi);
     for (int phi = 0; phi < numBinsPhi; phi++){
@@ -900,13 +904,16 @@ Eigen::VectorXf icet(Eigen::MatrixXf points, Eigen::MatrixXf points2, Eigen::Vec
             // Retrieve the point indices inside angular bin
             const vector<int>& indices = pointIndices[theta][phi];
 
+            // std::cout << "indices: " << indices.size() << endl;
             // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
             if (indices.size() > n) {
+                // std::cout << "occupiedCount: " << occupiedCount << std::endl;
                 // Use the indices to access the corresponding rows in sortedPointsSpherical
                 MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), sortedPointsSpherical.cols());
                 for (int i = 0; i < indices.size(); ++i) {
                     selectedPoints.row(i) = sortedPointsSpherical.row(indices[i]);
                 }
+                // std::cout << "selectedPoints: " << selectedPoints << std::endl; //they're definately points
 
                 // find inner and outer bounds for each theta/phi bin
                 pair<float, float> clusterDistances = findCluster(selectedPoints, n, thresh, buff);
@@ -918,67 +925,81 @@ Eigen::VectorXf icet(Eigen::MatrixXf points, Eigen::MatrixXf points2, Eigen::Vec
                 float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
                 float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
                 float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
+
                 //hold on to these values
                 clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
 
                 // find points from first scan inside voxel bounds and fit gaussians to each cluster
+                // std::cout << "clusterBounds.row(numBinsTheta*phi + theta): " << clusterBounds.row(numBinsTheta*phi + theta) << endl;
                 MatrixXf filteredPoints = filterPointsInsideCluster(selectedPoints, clusterBounds.row(numBinsTheta*phi + theta));
-                MatrixXf filteredPointsCart = sphericalToCartesian(filteredPoints);
-                Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
-                Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
-                Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
+                
+                //this will be empty if the clusterbounds are set to [0,0] (flagged as no useful voxels)
+                //      for some reason there isn't a problem taking mean and covariance from the empty matrix when
+                //      we use the csv point cloud files
+                if (outerDistance > 0.1){
+                    // std::cout << "filteredPoints" << filteredPoints << endl;
+                    MatrixXf filteredPointsCart = sphericalToCartesian(filteredPoints);
+                    // std::cout << "filteredPointsCart" << filteredPointsCart << endl; 
+                    // std::cout << "test" << endl;
+                    Eigen::VectorXf mean = filteredPointsCart.colwise().mean(); //crashing here when run with live PointCloud2 data!!?!
+                    // std::cout << "made it" << endl;
+                    Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
+                    Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
 
-                //hold on to means and covariances of clusters from scan1
-                sigma1[theta][phi] = covariance;
-                mu1[theta][phi] = mean;
+    
+                    //hold on to means and covariances of clusters from scan1
+                    sigma1[theta][phi] = covariance;
+                    mu1[theta][phi] = mean;
 
-                // get U and L ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
-                Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
-                Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
-                U[theta][phi] = eigenvectors.transpose();
 
-                // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
-                MatrixXf axislen(3,3);
-                axislen << eigenvalues[0], 0, 0,
-                            0, eigenvalues[1], 0,
-                            0, 0, eigenvalues[2];
-                axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
-                MatrixXf rotated = axislen * U[theta][phi].transpose();
-                Eigen::MatrixXf sigmaPoints(6,3);
-                sigmaPoints.row(0) = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
-                sigmaPoints.row(1) = mu1[theta][phi] - rotated.row(0).transpose();
-                sigmaPoints.row(2) = mu1[theta][phi] + rotated.row(1).transpose(); //middle
-                sigmaPoints.row(3) = mu1[theta][phi] - rotated.row(1).transpose();
-                sigmaPoints.row(4) = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
-                sigmaPoints.row(5) = mu1[theta][phi] - rotated.row(2).transpose();
-                // find out which test points fall inside the voxel bounds
-                Eigen::MatrixXf sigmaPointsSpherical = cartesianToSpherical(sigmaPoints);
-                MatrixXi sigmaPointsInside = testSigmaPoints(sigmaPointsSpherical, clusterBounds.row(numBinsTheta*phi + theta));                
-                //see if each axis contains at least one test point within voxel
-                if ((sigmaPointsInside.array() == 0).any() || (sigmaPointsInside.array() == 1).any()){
-                    L[theta][phi].row(0) << 1, 0, 0; 
-                } 
-                else{
-                    L[theta][phi].row(0) << 0, 0, 0;
-                    testPoints.row(6*(numBinsTheta*phi + theta)) = sigmaPoints.row(0).transpose();
-                    testPoints.row(6*(numBinsTheta*phi + theta)+1) = sigmaPoints.row(1).transpose();
-                }
-                if ((sigmaPointsInside.array() == 2).any() || (sigmaPointsInside.array() == 3).any()){
-                    L[theta][phi].row(1) << 0, 1, 0; 
-                } 
-                else{
-                    L[theta][phi].row(1) << 0, 0, 0;
-                    testPoints.row(6*(numBinsTheta*phi + theta)+2) = sigmaPoints.row(2).transpose();
-                    testPoints.row(6*(numBinsTheta*phi + theta)+3) = sigmaPoints.row(3).transpose();
-                }
-                if ((sigmaPointsInside.array() == 4).any() || (sigmaPointsInside.array() == 5).any()){
-                    L[theta][phi].row(2) << 0, 0, 1; 
-                } 
-                else{
-                    L[theta][phi].row(2) << 0, 0, 0;
-                    testPoints.row(6*(numBinsTheta*phi + theta)+4) = sigmaPoints.row(4).transpose();
-                    testPoints.row(6*(numBinsTheta*phi + theta)+5) = sigmaPoints.row(5).transpose();
+                    // get U and L ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
+                    Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
+                    Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
+                    U[theta][phi] = eigenvectors.transpose();
+
+                    // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
+                    MatrixXf axislen(3,3);
+                    axislen << eigenvalues[0], 0, 0,
+                                0, eigenvalues[1], 0,
+                                0, 0, eigenvalues[2];
+                    axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
+                    MatrixXf rotated = axislen * U[theta][phi].transpose();
+                    Eigen::MatrixXf sigmaPoints(6,3);
+                    sigmaPoints.row(0) = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
+                    sigmaPoints.row(1) = mu1[theta][phi] - rotated.row(0).transpose();
+                    sigmaPoints.row(2) = mu1[theta][phi] + rotated.row(1).transpose(); //middle
+                    sigmaPoints.row(3) = mu1[theta][phi] - rotated.row(1).transpose();
+                    sigmaPoints.row(4) = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
+                    sigmaPoints.row(5) = mu1[theta][phi] - rotated.row(2).transpose();
+                    // find out which test points fall inside the voxel bounds
+                    Eigen::MatrixXf sigmaPointsSpherical = cartesianToSpherical(sigmaPoints);
+                    MatrixXi sigmaPointsInside = testSigmaPoints(sigmaPointsSpherical, clusterBounds.row(numBinsTheta*phi + theta));                
+                    //see if each axis contains at least one test point within voxel
+                    if ((sigmaPointsInside.array() == 0).any() || (sigmaPointsInside.array() == 1).any()){
+                        L[theta][phi].row(0) << 1, 0, 0; 
+                    } 
+                    else{
+                        L[theta][phi].row(0) << 0, 0, 0;
+                        testPoints.row(6*(numBinsTheta*phi + theta)) = sigmaPoints.row(0).transpose();
+                        testPoints.row(6*(numBinsTheta*phi + theta)+1) = sigmaPoints.row(1).transpose();
+                    }
+                    if ((sigmaPointsInside.array() == 2).any() || (sigmaPointsInside.array() == 3).any()){
+                        L[theta][phi].row(1) << 0, 1, 0; 
+                    } 
+                    else{
+                        L[theta][phi].row(1) << 0, 0, 0;
+                        testPoints.row(6*(numBinsTheta*phi + theta)+2) = sigmaPoints.row(2).transpose();
+                        testPoints.row(6*(numBinsTheta*phi + theta)+3) = sigmaPoints.row(3).transpose();
+                    }
+                    if ((sigmaPointsInside.array() == 4).any() || (sigmaPointsInside.array() == 5).any()){
+                        L[theta][phi].row(2) << 0, 0, 1; 
+                    } 
+                    else{
+                        L[theta][phi].row(2) << 0, 0, 0;
+                        testPoints.row(6*(numBinsTheta*phi + theta)+4) = sigmaPoints.row(4).transpose();
+                        testPoints.row(6*(numBinsTheta*phi + theta)+5) = sigmaPoints.row(5).transpose();
+                    }
                 }
                 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             }
@@ -1021,9 +1042,9 @@ Eigen::VectorXf icet(Eigen::MatrixXf points, Eigen::MatrixXf points2, Eigen::Vec
     //main loop
     for (int iter = 0; iter<runlen; iter++ ){
 
-        std::cout << "cloud1: " << points.rows() << endl;
-        std::cout << "cloud2: " << points2.rows() << endl;
-        std::cout << "iter: \n" << iter << endl;
+        // std::cout << "cloud1: " << points.rows() << endl;
+        // std::cout << "cloud2: " << points2.rows() << endl;
+        // std::cout << "iter: \n" << iter << endl;
 
         // apply transformation to points2
         MatrixXf rot_mat = R(X[3], X[4], X[5]); 

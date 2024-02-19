@@ -4,6 +4,7 @@
 
 // Include necessary headers
 #include <iostream>
+// #define EIGEN_NO_DEBUG
 #include <Eigen/Dense>
 #include <vector>
 

@@ -4,6 +4,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/buffer.h>  // Add this line for tf2_ros::Buffer
 #include <pcl/registration/icp.h>
 #include <Eigen/Dense>
 #include "icet.h"
@@ -34,18 +35,18 @@ public:
         // Convert previous PCL PointCloud to Eigen::MatrixXf
 
         // //use all points
-        // Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(prev_pcl_cloud_); 
+        Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(prev_pcl_cloud_); 
 
-        // Filter out points less than distance 'd' from the origin
-        float d = 0.25;
-        pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        for (const auto& point : prev_pcl_cloud_->points) {
-            float distance = sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
-            if (distance >= d) {
-                filtered_cloud->points.push_back(point);
-            }
-        }
-        Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(filtered_cloud);
+        // // Filter out points less than distance 'd' from the origin
+        // float d = 0.25;
+        // pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        // for (const auto& point : prev_pcl_cloud_->points) {
+        //     float distance = sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
+        //     if (distance >= d) {
+        //         filtered_cloud->points.push_back(point);
+        //     }
+        // }
+        // Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(filtered_cloud);
 
         // ros::Duration(0.005).sleep(); // Wait for 5 milliseconds
 
@@ -55,8 +56,8 @@ public:
         int numBinsTheta = 75;  // 75 Adjust as needed
         int n = 25;  //25 Adjust as needed
         float thresh = 0.1;
-        float buff = 0.1;
-        int runlen = 5;
+        float buff = 0.125;
+        int runlen = 8;
         bool draw = false;
 
         Eigen::VectorXf X = icet(prev_pcl_matrix, pcl_matrix, X0, numBinsPhi, numBinsTheta, n, thresh, buff, runlen, draw);
@@ -81,38 +82,44 @@ public:
         X_homo_i.block<3, 1>(0, 3) = trans.transpose();
 
         //update accumulated transfrom
-        X_homo = X_homo * X_homo_i;
+        X_homo = X_homo * X_homo_i; //was this
+        // X_homo = X_homo * X_homo_i.inverse(); //nope
         std::cout << X_homo <<endl;
 
-        // // Example: Assuming you have a 3x3 rotation matrix and a translation vector
-        // Eigen::Matrix3f rotationMatrix;  // Replace with your actual rotation matrix
-        // Eigen::RowVector3f translationVector;  // Replace with your actual translation vector
+        // Create a geometry_msgs::TransformStamped message
+        geometry_msgs::TransformStamped transformStamped;
 
-        // // Create a geometry_msgs::TransformStamped message
-        // geometry_msgs::TransformStamped transformStamped;
+        // Set the frame IDs
+        transformStamped.header.frame_id = "map";         // Parent frame 
+        transformStamped.child_frame_id = "velodyne";     // Child frame
 
-        // // Set the frame IDs
-        // transformStamped.header.frame_id = "odom";     // Parent frame (e.g., odom)
-        // transformStamped.child_frame_id = "lidar";     // Child frame (e.g., lidar)
+        // Convert Eigen rotation matrix to quaternion
+        // Eigen::Matrix3f rotationMatrix = rot_mat.topLeftCorner(3, 3); //X_i
+        Eigen::Matrix3f rotationMatrix = X_homo.topLeftCorner(3, 3); //X
+        Eigen::Quaternionf quaternion(rotationMatrix);
 
-        // // Convert Eigen rotation matrix to quaternion
-        // Eigen::Quaternionf quaternion(rotationMatrix);
+        // Set the translation and rotation in the transform message
+        //X_i
+        // transformStamped.transform.translation.x = trans(0);
+        // transformStamped.transform.translation.y = trans(1);
+        // transformStamped.transform.translation.z = trans(2);
+        //X
+        transformStamped.transform.translation.x = X_homo(0,3);
+        transformStamped.transform.translation.y = X_homo(1,3);
+        transformStamped.transform.translation.z = X_homo(2,3);
+        transformStamped.transform.rotation.x = quaternion.x();
+        transformStamped.transform.rotation.y = quaternion.y();
+        transformStamped.transform.rotation.z = quaternion.z();
+        transformStamped.transform.rotation.w = quaternion.w();
 
-        // // Set the translation and rotation in the transform message
-        // transformStamped.transform.translation.x = translationVector.x();
-        // transformStamped.transform.translation.y = translationVector.y();
-        // transformStamped.transform.translation.z = translationVector.z();
+        // Set the timestamp
+        // std::cout << msg->header.stamp << endl;
+        // transformStamped.header.stamp = msg->header.stamp;  // Use lidar scan timestamp
+        transformStamped.header.stamp = ros::Time::now(); //use current timestamp --> issues with using rosbag data?
+        // transformStamped.header.stamp = msg->header.stamp + ros::Duration(0.025);  // Use lidar scan timestamp + some delta
 
-        // transformStamped.transform.rotation.x = quaternion.x();
-        // transformStamped.transform.rotation.y = quaternion.y();
-        // transformStamped.transform.rotation.z = quaternion.z();
-        // transformStamped.transform.rotation.w = quaternion.w();
-
-        // // Set the timestamp
-        // transformStamped.header.stamp = lidar_msg->header.stamp;  // Use lidar scan timestamp
-
-        // // Broadcast the transform
-        // broadcaster_.sendTransform(transformStamped);
+        // Broadcast the transform
+        broadcaster_.sendTransform(transformStamped);
 
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -120,9 +127,11 @@ public:
         //     (I think this should be more efficient than converting everything to eigen)
 
         // Create a header for the ROS message
-        std_msgs::Header header;
-        header.stamp = ros::Time::now();
-        header.frame_id = "velodyne";  // Set frame ID
+        std_msgs::Header header; 
+        header.stamp = ros::Time::now(); //use current timestamp --> issues with using rosbag data?
+        // header.stamp = msg->header.stamp; //use lidar scan timestamp
+        // header.stamp = msg-> header.stamp + ros::Duration(0.025); //use lidar scan timestamp + some small delta
+        header.frame_id = "map";  // Set frame ID
         sensor_msgs::PointCloud2 rosPointCloud = convertEigenToROS(scan2_in_scan1_frame, header);
         aligned_pointcloud_pub_.publish(rosPointCloud);
 
@@ -137,6 +146,8 @@ private:
     ros::Subscriber pointcloud_sub_;
     ros::Publisher aligned_pointcloud_pub_;
     pcl::PointCloud<pcl::PointXYZ>::Ptr prev_pcl_cloud_;
+    tf2_ros::Buffer tfBuffer_;
+    tf2_ros::TransformBroadcaster broadcaster_;
 
     //init variable to hold cumulative homogenous transform
     Eigen::Matrix4f X_homo = Eigen::Matrix4f::Identity(); 

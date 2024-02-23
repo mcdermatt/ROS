@@ -59,7 +59,7 @@ if gpus:
 
 class BagConverter():
 
-  def __init__(self, point_cloud_topic='/os1_cloud_node/points'):
+  def __init__(self, point_cloud_topic='/velodyne_points'): #'/os1_cloud_node/points'
 
     rospy.init_node('bagconverter', anonymous=False)
     self.pcSub = rospy.Subscriber(point_cloud_topic, PointCloud2, self.on_bag_point_cloud, queue_size = 1)
@@ -91,13 +91,16 @@ class BagConverter():
     # fn = "/media/derm/06EF-127D3/Newer College Dataset/06_Dynamic_Spinning/point_clouds/frame_" + str(self.count)
     # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/point_clouds/frame_" + str(self.count) #first bag
     # fn = "/media/derm/06EF-127D4/Newer College Dataset/01_Short_Experiment/point_clouds/frame_" + str(self.count)
-    fn = "/media/derm/06EF-127D4/Newer College Dataset/05_Quad_With_Dynamics/point_clouds_test/frame_" + str(self.count) #first bag
+    # fn = "/media/derm/06EF-127D4/Newer College Dataset/05_Quad_With_Dynamics/point_clouds_test/frame_" + str(self.count) #first bag
+
+    fn = "/home/derm/rosbag/desk_test_" + str(self.count) + ".txt"
 
     #test -- not sure what comes after first bag
     # fn = "/media/derm/06EF-127D3/Newer College Dataset/05_Quad_With_Dynamics/test/frame_" + str(self.count + 3358) #2nd bag??
 
     print("saving... ", fn)
-    np.save(fn, pc_xyz)
+    # np.save(fn, pc_xyz)
+    np.savetxt(fn, pc_xyz, fmt='%f', delimiter='\t')
     self.count += 1
 
 

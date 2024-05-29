@@ -11,7 +11,12 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   roscpp
   std_msgs
+  tf2
+  tf2_ros
 )
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -47,6 +52,9 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 find_package(PCL REQUIRED COMPONENTS common io)
+
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 ## Generate messages in the 'msg' folder
 # add_message_files(
@@ -107,7 +115,7 @@ find_package(PCL REQUIRED COMPONENTS common io)
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES woodhouse
- CATKIN_DEPENDS rospy rpscpp std_msgs
+ CATKIN_DEPENDS rospy rpscpp std_msgs tf2 tf2_ros
  DEPENDS system_lib
 )
 
@@ -124,6 +132,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/csv-parser/single_include
 )
 
 ## Declare a C++ library
@@ -166,23 +175,33 @@ target_link_libraries(pcl_subscriber_node
 )
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable(scan_matcher_node src/scanMatcher.cpp src/icet.cpp)
+add_executable(scan_matcher_node 
+                src/scanMatcher.cpp 
+                src/icet.cpp 
+                src/utils.cpp
+                src/ThreadPool.cpp)
 target_link_libraries(scan_matcher_node 
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
+  tbb
 )
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable(scan_matcher src/scanMatcher.cpp src/icet.cpp)
-target_link_libraries(scan_matcher
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-)
+# add_executable(scan_matcher src/scanMatcher.cpp src/icet.cpp src/utils.cpp)
+# target_link_libraries(scan_matcher
+#   ${catkin_LIBRARIES}
+#   ${PCL_LIBRARIES}
+# )
 
-add_executable(simple_map_maker_node src/simpleMapMaker.cpp src/icet.cpp)
+add_executable(simple_map_maker_node 
+                src/simpleMapMaker.cpp 
+                src/icet.cpp 
+                src/utils.cpp
+                src/ThreadPool.cpp)
 target_link_libraries(simple_map_maker_node
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
+  tbb
 )
 
 #############

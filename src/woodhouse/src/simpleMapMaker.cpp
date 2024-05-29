@@ -7,18 +7,28 @@
 #include <tf2_ros/buffer.h>  // Add this line for tf2_ros::Buffer
 #include <pcl/registration/icp.h>
 #include <Eigen/Dense>
+#include <random>
 #include "icet.h"
+#include "utils.h"
+
+using namespace std;
+using namespace Eigen;
 
 class MapMakerNode {
 public:
-    MapMakerNode() : nh_("~") {
+    MapMakerNode() : nh_("~"), initialized_(false) {
         // Set up ROS subscribers and publishers
         pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &MapMakerNode::pointcloudCallback, this);
         aligned_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/hd_map", 1);
 
         // Initialize the previous point cloud
-        pcl::PointCloud<pcl::PointXYZ>::Ptr prev_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        prev_pcl_cloud_ = prev_point_cloud;
+        // pcl::PointCloud<pcl::PointXYZ>::Ptr prev_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        // prev_pcl_cloud_ = prev_point_cloud;
+
+        // // Initialize the initial point cloud
+        // pcl::PointCloud<pcl::PointXYZ>::Ptr initial_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        // initial_pcl_cloud_ = initial_point_cloud;
+        // initial_scan_set_ = false;
     }
 
     void pointcloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {
@@ -29,13 +39,16 @@ public:
         pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::fromROSMsg(*msg, *pcl_cloud);
 
+        if (!initialized_) {
+            // On the first callback, initialize prev_pcl_cloud_
+            prev_pcl_cloud_ = pcl_cloud;
+            initialized_ = true;
+            prev_pcl_matrix = convertPCLtoEigen(prev_pcl_cloud_); //test
+            return;
+        }
+
         // Convert PCL PointCloud to Eigen::MatrixXf
         Eigen::MatrixXf pcl_matrix = convertPCLtoEigen(pcl_cloud);
-
-        // Convert previous PCL PointCloud to Eigen::MatrixXf
-
-        // //use all points
-        Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(prev_pcl_cloud_); 
 
         // // Filter out points less than distance 'd' from the origin
         // float d = 0.25;
@@ -48,32 +61,77 @@ public:
         // }
         // Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(filtered_cloud);
 
-        // ros::Duration(0.005).sleep(); // Wait for 5 milliseconds
+        // OLD SCAN REGISTRATION CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Eigen::VectorXf X0(6);
+        // X0 << 0., 0, 0., 0., 0., 0.;
+        // int numBinsPhi = 24;
+        // int numBinsTheta = 75;  // 75 Adjust as needed
+        // int n = 25;  //25 Adjust as needed
+        // float thresh = 0.1;
+        // float buff = 0.1;
+        // int runlen = 5;
+        // bool draw = false;
 
-        Eigen::VectorXf X0(6);
-        X0 << 0., 0, 0., 0., 0., 0.;
+        // Eigen::VectorXf X = icet(prev_pcl_matrix, pcl_matrix, X0, numBinsPhi, numBinsTheta, n, thresh, buff, runlen, draw);
+        // std::cout << "X: \n " << X << std::endl;
+
+        // NEW UPDATED ICET CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        int run_length = 7;
         int numBinsPhi = 24;
-        int numBinsTheta = 75;  // 75 Adjust as needed
-        int n = 25;  //25 Adjust as needed
-        float thresh = 0.1;
-        float buff = 0.125;
-        int runlen = 8;
-        bool draw = false;
-
-        Eigen::VectorXf X = icet(prev_pcl_matrix, pcl_matrix, X0, numBinsPhi, numBinsTheta, n, thresh, buff, runlen, draw);
-        std::cout << "X: \n " << X << std::endl;
+        // int numBinsPhi = 18; //for 32 channel sensor
+        int numBinsTheta = 75; 
+        Eigen::VectorXf X0;
+        X0.resize(6);
+        X0 << 1., 0., 0., 0., 0., 0.; //set initial estimate
+        ICET it(prev_pcl_matrix, pcl_matrix, run_length, X0, numBinsPhi, numBinsTheta);
+        Eigen::VectorXf X = it.X;
+        cout << "soln: " << endl << X;
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         // Update the previous point cloud for the next iteration
-        prev_pcl_cloud_ = pcl_cloud;
+        // prev_pcl_cloud_ = pcl_cloud; //only for visualization (not helpful here!)  
 
         // Convert back to ROS PointCloud2 and publish the aligned point cloud
         sensor_msgs::PointCloud2 aligned_cloud_msg;
-        MatrixXf rot_mat = R(X[3], X[4], X[5]);
-        // std::cout << rot_mat << endl;
+        MatrixXf rot_mat = utils::R(X[3], X[4], X[5]);
         Eigen::RowVector3f trans(X[0], X[1], X[2]);
+        // MatrixXf rot_mat = R(-X[3], -X[4], -X[5]); //test
+        // Eigen::RowVector3f trans(-X[0], -X[1], -X[2]); //test
 
-        Eigen:MatrixXf scan2_in_scan1_frame = (pcl_matrix * rot_mat.inverse()).rowwise() - trans;
-        // std::cout << scan2_in_scan1_frame << endl;
+
+        // Eigen:MatrixXf prev_pcl_matrix = (prev_pcl_matrix * rot_mat.inverse()).rowwise() - trans; //was this --> exploding solutions
+        Eigen:MatrixXf new_scan_in_map_frame = (pcl_matrix * rot_mat.inverse()).rowwise() - trans; //bring scan1 into the frame of scan2 and save
+        // Eigen:MatrixXf scan2_in_scan1_frame = (pcl_matrix * rot_mat.inverse()).rowwise() - trans;
+
+        //append new scan to the map and resize map to fixed size~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        prev_pcl_matrix.conservativeResize(prev_pcl_matrix.rows() + new_scan_in_map_frame.rows(), Eigen::NoChange);
+        prev_pcl_matrix.bottomRows(new_scan_in_map_frame.rows()) = new_scan_in_map_frame; 
+
+        // Calculate the number of rows to remove (n% of total rows)
+        int rows_to_remove = static_cast<int>(0.2 * prev_pcl_matrix.rows());
+
+        // Generate random indices of rows to remove
+        std::random_device rd;  
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(0, prev_pcl_matrix.rows() - 1);
+
+        // Create a vector to store indices of rows to remove
+        std::vector<int> rows_to_remove_indices;
+        for (int i = 0; i < rows_to_remove; ++i) {
+            rows_to_remove_indices.push_back(dis(gen));
+        }
+
+        // Remove rows outside of the loop to avoid modifying matrix size during iteration
+        for (int i = 0; i < rows_to_remove; ++i) {
+            int index_to_remove = rows_to_remove_indices[i];
+            prev_pcl_matrix.row(index_to_remove) = prev_pcl_matrix.row(prev_pcl_matrix.rows() - 1);
+        }
+
+        // Resize the matrix to exclude the specified rows
+        prev_pcl_matrix.conservativeResize(prev_pcl_matrix.rows() - rows_to_remove, Eigen::NoChange);
+
+        std::cout << "size of map: " << prev_pcl_matrix.rows() << std::endl;
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         //"broadcast" transform that relates /velodyne frame to /map frame ~~~~~~~~~~~~~~~~~~~~~
         //convert ICET output X for scan i to homogenous transformation matrix
@@ -84,7 +142,7 @@ public:
         //update accumulated transfrom
         X_homo = X_homo * X_homo_i; //was this
         // X_homo = X_homo * X_homo_i.inverse(); //nope
-        std::cout << X_homo <<endl;
+        // std::cout << "X: \n" << X_homo <<endl;
 
         // Create a geometry_msgs::TransformStamped message
         geometry_msgs::TransformStamped transformStamped;
@@ -99,11 +157,11 @@ public:
         Eigen::Quaternionf quaternion(rotationMatrix);
 
         // Set the translation and rotation in the transform message
-        //X_i
+        // //X_i
         // transformStamped.transform.translation.x = trans(0);
         // transformStamped.transform.translation.y = trans(1);
         // transformStamped.transform.translation.z = trans(2);
-        //X
+        // X
         transformStamped.transform.translation.x = X_homo(0,3);
         transformStamped.transform.translation.y = X_homo(1,3);
         transformStamped.transform.translation.z = X_homo(2,3);
@@ -116,7 +174,6 @@ public:
         // std::cout << msg->header.stamp << endl;
         // transformStamped.header.stamp = msg->header.stamp;  // Use lidar scan timestamp
         transformStamped.header.stamp = ros::Time::now(); //use current timestamp --> issues with using rosbag data?
-        // transformStamped.header.stamp = msg->header.stamp + ros::Duration(0.025);  // Use lidar scan timestamp + some delta
 
         // Broadcast the transform
         broadcaster_.sendTransform(transformStamped);
@@ -130,9 +187,9 @@ public:
         std_msgs::Header header; 
         header.stamp = ros::Time::now(); //use current timestamp --> issues with using rosbag data?
         // header.stamp = msg->header.stamp; //use lidar scan timestamp
-        // header.stamp = msg-> header.stamp + ros::Duration(0.025); //use lidar scan timestamp + some small delta
         header.frame_id = "map";  // Set frame ID
-        sensor_msgs::PointCloud2 rosPointCloud = convertEigenToROS(scan2_in_scan1_frame, header);
+        // sensor_msgs::PointCloud2 rosPointCloud = convertEigenToROS(scan2_in_scan1_frame, header);
+        sensor_msgs::PointCloud2 rosPointCloud = convertEigenToROS(prev_pcl_matrix, header);
         aligned_pointcloud_pub_.publish(rosPointCloud);
 
         auto after1 = std::chrono::system_clock::now();
@@ -148,10 +205,11 @@ private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr prev_pcl_cloud_;
     tf2_ros::Buffer tfBuffer_;
     tf2_ros::TransformBroadcaster broadcaster_;
+    bool initialized_;
+    Eigen::MatrixXf prev_pcl_matrix; //testing init here
 
     //init variable to hold cumulative homogenous transform
     Eigen::Matrix4f X_homo = Eigen::Matrix4f::Identity(); 
-
 
     Eigen::MatrixXf convertPCLtoEigen(const pcl::PointCloud<pcl::PointXYZ>::Ptr& pcl_cloud) {
         Eigen::MatrixXf eigen_matrix(pcl_cloud->size(), 3);

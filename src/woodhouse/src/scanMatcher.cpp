@@ -6,12 +6,18 @@
 #include <pcl/registration/icp.h>
 #include <Eigen/Dense>
 #include "icet.h"
+#include "utils.h"
+
+
+using namespace std;
+using namespace Eigen;
 
 class ScanRegistrationNode {
 public:
     ScanRegistrationNode() : nh_("~") {
         // Set up ROS subscribers and publishers
-        pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &ScanRegistrationNode::pointcloudCallback, this);
+        pointcloud_sub_ = nh_.subscribe("/os1_cloud_node/points", 10, &ScanRegistrationNode::pointcloudCallback, this);
+        // pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &ScanRegistrationNode::pointcloudCallback, this);
         aligned_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/aligned_pointcloud_topic", 1);
 
         // Initialize the previous point cloud
@@ -48,25 +54,40 @@ public:
 
         // ros::Duration(0.005).sleep(); // Wait for 5 milliseconds
 
-        Eigen::VectorXf X0(6);
-        X0 << 0., 0, 0., 0., 0., 0.;
-        int numBinsPhi = 24;
-        int numBinsTheta = 75;  // 75 Adjust as needed
-        int n = 25;  //25 Adjust as needed
-        float thresh = 0.1;
-        float buff = 0.1;
-        int runlen = 5;
-        bool draw = false;
 
-        Eigen::VectorXf X = icet(prev_pcl_matrix, pcl_matrix, X0, numBinsPhi, numBinsTheta, n, thresh, buff, runlen, draw);
-        std::cout << "X: \n " << X << std::endl;
+        // OLD SCAN REGISTRATION CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Eigen::VectorXf X0(6);
+        // X0 << 0., 0, 0., 0., 0., 0.;
+        // int numBinsPhi = 24;
+        // int numBinsTheta = 75;  // 75 Adjust as needed
+        // int n = 25;  //25 Adjust as needed
+        // float thresh = 0.1;
+        // float buff = 0.1;
+        // int runlen = 5;
+        // bool draw = false;
+
+        // Eigen::VectorXf X = icet(prev_pcl_matrix, pcl_matrix, X0, numBinsPhi, numBinsTheta, n, thresh, buff, runlen, draw);
+        // std::cout << "X: \n " << X << std::endl;
+
+        // NEW UPDATED ICET CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        int run_length = 7;
+        int numBinsPhi = 24;
+        // int numBinsPhi = 18; //for 32 channel sensor
+        int numBinsTheta = 75; 
+        Eigen::VectorXf X0;
+        X0.resize(6);
+        X0 << 0., 0., 0., 0., 0., 0.; //set initial estimate
+        ICET it(prev_pcl_matrix, pcl_matrix, run_length, X0, numBinsPhi, numBinsTheta);
+        Eigen::VectorXf X = it.X;
+        cout << "soln: " << endl << X;
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         // Update the previous point cloud for the next iteration
         prev_pcl_cloud_ = pcl_cloud;
 
         // Convert back to ROS PointCloud2 and publish the aligned point cloud
         sensor_msgs::PointCloud2 aligned_cloud_msg;
-        MatrixXf rot_mat = R(X[3], X[4], X[5]);
+        MatrixXf rot_mat = utils::R(X[3], X[4], X[5]);
         // std::cout << rot_mat << endl;
         Eigen::RowVector3f trans(X[0], X[1], X[2]);
 
@@ -81,7 +102,8 @@ public:
         // Create a header for the ROS message
         std_msgs::Header header;
         header.stamp = ros::Time::now();
-        header.frame_id = "velodyne";  // Set frame ID
+        // header.frame_id = "velodyne";  // Set frame ID
+        header.frame_id = "/os1_lidar";  // Set frame ID
         sensor_msgs::PointCloud2 rosPointCloud = convertEigenToROS(scan2_in_scan1_frame, header);
         aligned_pointcloud_pub_.publish(rosPointCloud);
 

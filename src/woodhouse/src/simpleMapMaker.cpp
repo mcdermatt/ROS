@@ -18,7 +18,8 @@ class MapMakerNode {
 public:
     MapMakerNode() : nh_("~"), initialized_(false) {
         // Set up ROS subscribers and publishers
-        pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &MapMakerNode::pointcloudCallback, this);
+        // pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &MapMakerNode::pointcloudCallback, this);
+        pointcloud_sub_ = nh_.subscribe("/os1_cloud_node/points", 10, &MapMakerNode::pointcloudCallback, this);
         aligned_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/hd_map", 1);
 
         // Initialize the previous point cloud
@@ -82,7 +83,7 @@ public:
         int numBinsTheta = 75; 
         Eigen::VectorXf X0;
         X0.resize(6);
-        X0 << 1., 0., 0., 0., 0., 0.; //set initial estimate
+        X0 << 0., 0., 0., 0., 0., 0.; //set initial estimate
         ICET it(prev_pcl_matrix, pcl_matrix, run_length, X0, numBinsPhi, numBinsTheta);
         Eigen::VectorXf X = it.X;
         cout << "soln: " << endl << X;
@@ -149,7 +150,8 @@ public:
 
         // Set the frame IDs
         transformStamped.header.frame_id = "map";         // Parent frame 
-        transformStamped.child_frame_id = "velodyne";     // Child frame
+        // transformStamped.child_frame_id = "velodyne";     // Child frame
+        transformStamped.child_frame_id = "/os1_lidar";     // Child frame
 
         // Convert Eigen rotation matrix to quaternion
         // Eigen::Matrix3f rotationMatrix = rot_mat.topLeftCorner(3, 3); //X_i

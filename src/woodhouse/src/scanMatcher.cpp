@@ -8,7 +8,6 @@
 #include "icet.h"
 #include "utils.h"
 
-
 using namespace std;
 using namespace Eigen;
 
@@ -19,93 +18,90 @@ public:
         pointcloud_sub_ = nh_.subscribe("/os1_cloud_node/points", 10, &ScanRegistrationNode::pointcloudCallback, this);
         // pointcloud_sub_ = nh_.subscribe("/velodyne_points", 10, &ScanRegistrationNode::pointcloudCallback, this);
         aligned_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/aligned_pointcloud_topic", 1);
+        snail_trail_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/snail_trail_topic", 1);
 
         // Initialize the previous point cloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr prev_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         prev_pcl_cloud_ = prev_point_cloud;
+        snailTrail.resize(1,3);
+        snailTrail.row(0) << 0., 0., 0.;
     }
 
     void pointcloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {
         auto before = std::chrono::system_clock::now();
         auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
 
+        frameCount++;
+
         // Convert PointCloud2 to PCL PointCloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::fromROSMsg(*msg, *pcl_cloud);
 
-        // Convert PCL PointCloud to Eigen::MatrixXf
+        if (pcl_cloud->empty()) {
+            ROS_WARN("Received an empty point cloud");
+            return;       
+        }
         Eigen::MatrixXf pcl_matrix = convertPCLtoEigen(pcl_cloud);
 
-        // Convert previous PCL PointCloud to Eigen::MatrixXf
-
-        // //use all points
-        // Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(prev_pcl_cloud_); 
-
-        // Filter out points less than distance 'd' from the origin
-        float d = 0.25;
-        pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        for (const auto& point : prev_pcl_cloud_->points) {
-            float distance = sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
-            if (distance >= d) {
-                filtered_cloud->points.push_back(point);
-            }
+        if (prev_pcl_cloud_->empty()) {
+            ROS_WARN("Previous point cloud is empty, skipping this frame");
+            prev_pcl_cloud_ = pcl_cloud; // Update the previous point cloud
+            return;
         }
-        Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(filtered_cloud);
+        Eigen::MatrixXf prev_pcl_matrix = convertPCLtoEigen(prev_pcl_cloud_); 
 
         // ros::Duration(0.005).sleep(); // Wait for 5 milliseconds
 
+        try{
+            // NEW UPDATED ICET CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            int run_length = 7;
+            int numBinsPhi = 18; //24 for ouster, 18 for 32 channel sensor
+            int numBinsTheta = 50;  //75; 
+            Eigen::VectorXf X0;
+            X0.resize(6);
+            X0 << 0., 0., 0., 0., 0., 0.; //set initial estimate
+            ICET it(prev_pcl_matrix, pcl_matrix, run_length, X0, numBinsPhi, numBinsTheta);
+            Eigen::VectorXf X = it.X;
+            cout << "odometry estimate for frame " << frameCount << ":" << endl << X << endl;
+            //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        // OLD SCAN REGISTRATION CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        // Eigen::VectorXf X0(6);
-        // X0 << 0., 0, 0., 0., 0., 0.;
-        // int numBinsPhi = 24;
-        // int numBinsTheta = 75;  // 75 Adjust as needed
-        // int n = 25;  //25 Adjust as needed
-        // float thresh = 0.1;
-        // float buff = 0.1;
-        // int runlen = 5;
-        // bool draw = false;
+            // Update the previous point cloud for the next iteration
+            prev_pcl_cloud_ = pcl_cloud;
 
-        // Eigen::VectorXf X = icet(prev_pcl_matrix, pcl_matrix, X0, numBinsPhi, numBinsTheta, n, thresh, buff, runlen, draw);
-        // std::cout << "X: \n " << X << std::endl;
+            // Convert back to ROS PointCloud2 and publish the aligned point cloud
+            sensor_msgs::PointCloud2 aligned_cloud_msg;
+            MatrixXf rot_mat = utils::R(X[3], X[4], X[5]);
+            Eigen::RowVector3f trans(X[0], X[1], X[2]);
 
-        // NEW UPDATED ICET CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        int run_length = 7;
-        int numBinsPhi = 24;
-        // int numBinsPhi = 18; //for 32 channel sensor
-        int numBinsTheta = 75; 
-        Eigen::VectorXf X0;
-        X0.resize(6);
-        X0 << 0., 0., 0., 0., 0., 0.; //set initial estimate
-        ICET it(prev_pcl_matrix, pcl_matrix, run_length, X0, numBinsPhi, numBinsTheta);
-        Eigen::VectorXf X = it.X;
-        cout << "soln: " << endl << X;
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            Eigen:MatrixXf scan2_in_scan1_frame = (pcl_matrix * rot_mat.inverse()).rowwise() - trans;
+            
+            //update snail trail
+            snailTrail = (snailTrail * rot_mat.inverse()).rowwise() - trans;
+            Eigen::VectorXf new_row(3);
+            new_row << 0., 0., 0.;
+            int currentRows = snailTrail.rows();
+            snailTrail.conservativeResize(currentRows + 1, Eigen::NoChange);
+            snailTrail.row(currentRows) = new_row;
+            // cout << "snail trail: " << endl << snailTrail << endl;
 
-        // Update the previous point cloud for the next iteration
-        prev_pcl_cloud_ = pcl_cloud;
+            // Create a header for the ROS message
+            std_msgs::Header header;
+            header.stamp = ros::Time::now();
+            // header.frame_id = "velodyne";  // Set frame ID
+            header.frame_id = "/os1_lidar";  // Set frame ID
+            sensor_msgs::PointCloud2 rosPointCloud = convertEigenToROS(scan2_in_scan1_frame, header);
+            aligned_pointcloud_pub_.publish(rosPointCloud);
 
-        // Convert back to ROS PointCloud2 and publish the aligned point cloud
-        sensor_msgs::PointCloud2 aligned_cloud_msg;
-        MatrixXf rot_mat = utils::R(X[3], X[4], X[5]);
-        // std::cout << rot_mat << endl;
-        Eigen::RowVector3f trans(X[0], X[1], X[2]);
-
-        Eigen:MatrixXf scan2_in_scan1_frame = (pcl_matrix * rot_mat.inverse()).rowwise() - trans;
-        // std::cout << scan2_in_scan1_frame << endl;
-
-        // pcl::toROSMsg(*pcl_cloud, aligned_cloud_msg);
-        // pcl::toROSMsg(scan2_in_scan1_frame, aligned_cloud_msg);
-
-        //TODO: perform transform by keeping scan2 in pcl format so we can use builtin pcl functions for transform
-
-        // Create a header for the ROS message
-        std_msgs::Header header;
-        header.stamp = ros::Time::now();
-        // header.frame_id = "velodyne";  // Set frame ID
-        header.frame_id = "/os1_lidar";  // Set frame ID
-        sensor_msgs::PointCloud2 rosPointCloud = convertEigenToROS(scan2_in_scan1_frame, header);
-        aligned_pointcloud_pub_.publish(rosPointCloud);
+            sensor_msgs::PointCloud2 snailPC = convertEigenToROS(snailTrail, header);
+            snail_trail_pub_.publish(snailPC);
+        }
+        catch (const std::exception& e) {
+            ROS_ERROR("Exception caught during ICET processing: %s", e.what());
+            return;
+        } catch (...) {
+            ROS_ERROR("Unknown exception caught during ICET processing");
+            return;
+        }
 
         auto after1 = std::chrono::system_clock::now();
         auto after1Ms = std::chrono::time_point_cast<std::chrono::milliseconds>(after1);
@@ -117,7 +113,10 @@ private:
     ros::NodeHandle nh_;
     ros::Subscriber pointcloud_sub_;
     ros::Publisher aligned_pointcloud_pub_;
+    ros::Publisher snail_trail_pub_;
     pcl::PointCloud<pcl::PointXYZ>::Ptr prev_pcl_cloud_;
+    int frameCount = 0;
+    Eigen::MatrixXf snailTrail;
 
     Eigen::MatrixXf convertPCLtoEigen(const pcl::PointCloud<pcl::PointXYZ>::Ptr& pcl_cloud) {
         Eigen::MatrixXf eigen_matrix(pcl_cloud->size(), 3);

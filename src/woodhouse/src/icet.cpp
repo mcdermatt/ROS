@@ -33,8 +33,8 @@ ICET::ICET(MatrixXf& scan1, MatrixXf& scan2, int runlen, Eigen::VectorXf X0,
 
     // init hyperparameters for spherical voxels
     n = 10; //50; // min size of the cluster
-    thresh = 0.3; // 0.1 indoor, 0.3 outdoor; // Jump threshold for beginning and ending radial clusters
-    buff = 0.5; // 0.1 indoor, outdoor 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
+    thresh = 0.1; // 0.1 indoor, 0.3 outdoor; // Jump threshold for beginning and ending radial clusters
+    buff = 0.2; // 0.1 indoor, outdoor 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
     points2_OG = points2;
     HTWH_i.resize(6,6);
@@ -121,7 +121,8 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
     float innerDistance;
     float outerDistance;
 
-    // cout << "theta: " << theta << "  phi: " << phi << endl;
+    //not the issue rn 
+    // // cout << "theta: " << theta << "  phi: " << phi << endl;
     // if (phi * numBinsTheta + theta >= numBinsPhi*numBinsTheta){
     //     cout << " problem " <<endl;
     //     return;
@@ -154,7 +155,7 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
 
         // find points from first scan inside voxel bounds and fit gaussians to each cluster
         MatrixXf filteredPoints = filterPointsInsideCluster(selectedPoints, clusterBounds.row(numBinsTheta*phi + theta));
-        if (outerDistance > 0.1){
+        if (outerDistance > 0.1 && filteredPoints.size() >= n){
             MatrixXf filteredPointsCart = utils::sphericalToCartesian(filteredPoints);
             Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
             Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
@@ -170,7 +171,7 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
             //     cout << filteredPoints.row(i) << endl;
             // }
             // cout << "filteredPointsCart: " << endl << filteredPointsCart.rows() << endl; 
-            // cout << "mean: " << endl << mean << endl << " covariance: " << endl << covariance << endl;
+            // cout << " covariance: " << endl << covariance << endl;
 
             //hold on to means and covariances of clusters from scan1
             sigma1[theta][phi] = covariance;

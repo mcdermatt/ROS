@@ -32,9 +32,9 @@ ICET::ICET(MatrixXf& scan1, MatrixXf& scan2, int runlen, Eigen::VectorXf X0,
            numBinsPhi(num_bins_phi), numBinsTheta(num_bins_theta), pool(4) {
 
     // init hyperparameters for spherical voxels
-    n = 10; //50; // min size of the cluster
-    thresh = 0.1; // 0.1 indoor, 0.3 outdoor; // Jump threshold for beginning and ending radial clusters
-    buff = 0.2; // 0.1 indoor, outdoor 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
+    n = 25; //50; // min size of the cluster
+    thresh = 0.2; // 0.1 indoor, 0.3 outdoor; // Jump threshold for beginning and ending radial clusters
+    buff = 0.5; // 0.1 indoor, outdoor 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
     points2_OG = points2;
     HTWH_i.resize(6,6);
@@ -121,20 +121,12 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
     float innerDistance;
     float outerDistance;
 
-    //not the issue rn 
-    // // cout << "theta: " << theta << "  phi: " << phi << endl;
-    // if (phi * numBinsTheta + theta >= numBinsPhi*numBinsTheta){
-    //     cout << " problem " <<endl;
-    //     return;
-    // }
-
 
     // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
     if (indices.size() >= n) {
 
         // Use the indices to access the corresponding rows in sortedPointsSpherical
         MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), points1Spherical.cols());
-        //TODO bug here--->
         for (int i = 0; i < indices.size(); ++i) { 
             selectedPoints.row(i) = points1Spherical.row(indices[i]);
             // cout << i;

@@ -55,8 +55,8 @@ public:
         try{
             // NEW UPDATED ICET CODE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             int run_length = 7;
-            int numBinsPhi = 18; //24 for ouster, 18 for 32 channel sensor
-            int numBinsTheta = 50;  //75; 
+            int numBinsPhi = 24; //24 for ouster, 18 for 32 channel sensor
+            int numBinsTheta = 75;  //75; 
             Eigen::VectorXf X0;
             X0.resize(6);
             X0 << 0., 0., 0., 0., 0., 0.; //set initial estimate

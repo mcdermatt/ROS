@@ -1,3 +1,0 @@
-#followed this tutorial for message generation:
-http://wiki.ros.org/ROS/Tutorials/CreatingMsgAndSrv
-
